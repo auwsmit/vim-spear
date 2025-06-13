@@ -1,12 +1,12 @@
 " Spear - similar to a harpoon
 " Author:     Austin W. Smith
-" Version:    0.1.0
+" Version:    0.2.0
+
 if exists('g:loaded_spear')
   finish
 endif
 let g:loaded_spear = 1
 
-" TODO: add quick-swap hot keys
 " TODO: make commands for mapping
 " TODO: remove from list when file not found
 " TODO: make a file list per working directory
@@ -32,6 +32,14 @@ fun! s:SpearRefresh()
   endif
 endfun
 
+fun! s:SpearSave()
+  silent! write
+  let lines = readfile(s:spear_list_file)
+  call writefile(lines, s:spear_list_file)
+  echo 'Saved Spear List'
+  call s:SpearRefresh()
+endfun
+
 fun! s:AddFile()
   let line = expand('%:p')
   let has_line = index(readfile(s:spear_list_file), line) != -1
@@ -43,30 +51,43 @@ fun! s:AddFile()
   endif
 endfun
 
-fun! s:OpenFile()
-  let saved_file = getline('.')
-  call s:CloseSpearMenu()
+fun! s:OpenFile(num)
+  let saved_file = 0
+  let spear_id = bufwinnr(s:spear_list_file)
+  if a:num == -1
+    let saved_file = getline('.')
+  else
+    let files = readfile(s:spear_list_file)
+    if a:num > len(files) || a:num < 1
+      echohl WarningMsg | echo 'No file #' . a:num | echohl None
+      return
+    endif
+    let saved_file = files[a:num-1]
+  endif
+  if winnr() == spear_id
+    call s:CloseSpearMenu()
+  endif
   if filereadable(saved_file)
     exec 'silent! edit ' . saved_file
   else
-    echo 'File not found!'
+    echohl WarningMsg | echo 'File not found!' | echohl None
     " TODO: remove from list
   endif
 endfun
 
 fun! s:DeleteFile()
   let lines = readfile(s:spear_list_file)
-  let l:pattern = '\V'.escape(getline('.'), '\')
-  let new_lines = filter(lines, 'v:val !~# l:pattern')
+  let pattern = '\V'.escape(getline('.'), '\')
+  let new_lines = filter(lines, 'v:val !~# pattern')
   call writefile(new_lines, s:spear_list_file)
   call s:SpearRefresh()
 endfun
 
-fun! s:CreateSpearMaps()
-  nnoremap <silent> <buffer> <cr> :call <sid>OpenFile()<cr>
+fun! s:CreateSpearMenuMaps()
+  nnoremap <silent> <buffer> <cr> :call <sid>OpenFile(-1)<cr>
   nnoremap <silent> <buffer> x    :call <sid>DeleteFile()<cr>
+  nnoremap          <buffer> s    :call <sid>SpearSave()<cr>
   nnoremap <silent> <buffer> q    :close<cr>
-  nnoremap          <buffer> s    :write<cr>:echo 'Saved Spear List'<cr>
 endfun
 
 fun! s:SpearTextChanged()
@@ -83,7 +104,8 @@ fun! s:OpenSpearMenu()
     exec 'botright '.s:spear_win_height.'split '.s:spear_list_file
     set filetype=spear
     set bufhidden=wipe
-    call s:CreateSpearMaps()
+    setlocal number norelativenumber
+    call s:CreateSpearMenuMaps()
     augroup spear_nomodified
       au!
       au TextChanged,TextChangedI <buffer> call <sid>SpearTextChanged()
@@ -135,5 +157,11 @@ if !isdirectory(s:spear_data_dir)
   call mkdir(s:spear_data_dir)
 endif
 
+" mappings that would be added in personal config
 nnoremap <silent> <space>s :call <sid>ToggleSpearMenu()<cr>
 nnoremap <space>a :call <sid>AddFile()<cr>
+nnoremap <space>1 :call <sid>OpenFile(1)<cr>
+nnoremap <space>2 :call <sid>OpenFile(2)<cr>
+nnoremap <space>3 :call <sid>OpenFile(3)<cr>
+nnoremap <space>4 :call <sid>OpenFile(4)<cr>
+
