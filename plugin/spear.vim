@@ -1,14 +1,13 @@
 " Spear - similar to a harpoon
 " Author:     Austin W. Smith
-" Version:    0.2.0
+" Version:    0.3.0
 
 if exists('g:loaded_spear')
   finish
 endif
 let g:loaded_spear = 1
 
-" TODO: make commands for mapping
-" TODO: remove from list when file not found
+" TODO: make maps for prev and next file
 " TODO: make a file list per working directory
 " TODO: create a fancier/prettier fake display buffer somehow
 "       - store and read data with readfile and writefile?
@@ -16,7 +15,7 @@ let g:loaded_spear = 1
 let s:spear_is_open = 0
 let s:spear_win_height = 8
 let s:spear_data_dir = fnamemodify(expand($MYVIMRC), ':h').'/spear_data/'
-let s:spear_list_file = s:spear_data_dir.'spear_list_file.txt'
+let s:spear_list_file = s:spear_data_dir.'spear_list.txt'
 
 fun! s:SpearRefresh()
   let spear_id = bufwinnr(s:spear_list_file)
@@ -26,8 +25,8 @@ fun! s:SpearRefresh()
   else
     exec spear_id . 'wincmd w'
     edit!
-    if winbufnr(g:last_win) != -1
-      exec g:last_win . 'wincmd w'
+    if winbufnr(s:last_win) != -1
+      exec s:last_win . 'wincmd w'
     endif
   endif
 endfun
@@ -42,13 +41,21 @@ endfun
 
 fun! s:AddFile()
   let line = expand('%:p')
-  let has_line = index(readfile(s:spear_list_file), line) != -1
-  if has_line
+  let lines = readfile(s:spear_list_file)
+  if index(lines, line) != -1
     return
-  else
-    call writefile([line], s:spear_list_file, 'a')
-    call s:SpearRefresh()
   endif
+
+  " check for empty lines
+  let blank_idx = index(lines, '')
+  if blank_idx != -1
+    let lines[blank_idx] = line
+  else
+    call add(lines, line)
+  endif
+
+  call writefile([line], s:spear_list_file, 'a')
+  call s:SpearRefresh()
 endfun
 
 fun! s:OpenFile(num)
@@ -71,21 +78,25 @@ fun! s:OpenFile(num)
     exec 'silent! edit ' . saved_file
   else
     echohl WarningMsg | echo 'File not found!' | echohl None
-    " TODO: remove from list
+    let ask = confirm('Would you like to delete "'.saved_file.'"', "&Yes\n&no", 1)
+    if ask == 2 | return | end
+    let lines = readfile(s:spear_list_file)
+    call remove(lines, a:num-1)
+    call writefile(lines, s:spear_list_file)
   endif
 endfun
 
-fun! s:DeleteFile()
+fun! s:DeleteFile(line)
   let lines = readfile(s:spear_list_file)
-  let pattern = '\V'.escape(getline('.'), '\')
-  let new_lines = filter(lines, 'v:val !~# pattern')
-  call writefile(new_lines, s:spear_list_file)
+  let pattern = '\V'.escape(getline(a:line), '\')
+  call filter(lines, 'v:val !~# pattern')
+  call writefile(lines, s:spear_list_file)
   call s:SpearRefresh()
 endfun
 
 fun! s:CreateSpearMenuMaps()
   nnoremap <silent> <buffer> <cr> :call <sid>OpenFile(-1)<cr>
-  nnoremap <silent> <buffer> x    :call <sid>DeleteFile()<cr>
+  nnoremap <silent> <buffer> x    :call <sid>DeleteFile('.')<cr>
   nnoremap          <buffer> s    :call <sid>SpearSave()<cr>
   nnoremap <silent> <buffer> q    :close<cr>
 endfun
@@ -98,10 +109,11 @@ fun! s:SpearTextChanged()
 endfun
 
 fun! s:OpenSpearMenu()
-  let g:last_win = winnr()
+  let s:last_win = winnr()
   let spear_id = bufwinnr(s:spear_list_file)
   if spear_id == -1
     exec 'botright '.s:spear_win_height.'split '.s:spear_list_file
+    normal! ggF\l
     set filetype=spear
     set bufhidden=wipe
     setlocal number norelativenumber
@@ -122,8 +134,8 @@ endfun
 
 fun! s:CloseSpearMenu()
   let spear_id = bufwinnr(s:spear_list_file)
-  if winbufnr(g:last_win) != -1
-    exec g:last_win . 'wincmd w'
+  if winbufnr(s:last_win) != -1
+    exec s:last_win . 'wincmd w'
   endif
   exec spear_id . 'wincmd c'
   let s:spear_is_open = 0
@@ -142,7 +154,7 @@ fun! s:TrackWindow()
   let spear_id = bufwinnr(s:spear_list_file)
   if s:spear_is_open && spear_id != -1
     if winnr() != spear_id
-      let g:last_win = winnr()
+      let s:last_win = winnr()
     endif
   endif
 endfun
@@ -157,11 +169,6 @@ if !isdirectory(s:spear_data_dir)
   call mkdir(s:spear_data_dir)
 endif
 
-" mappings that would be added in personal config
-nnoremap <silent> <space>s :call <sid>ToggleSpearMenu()<cr>
-nnoremap <space>a :call <sid>AddFile()<cr>
-nnoremap <space>1 :call <sid>OpenFile(1)<cr>
-nnoremap <space>2 :call <sid>OpenFile(2)<cr>
-nnoremap <space>3 :call <sid>OpenFile(3)<cr>
-nnoremap <space>4 :call <sid>OpenFile(4)<cr>
-
+command! SpearAdd call <sid>AddFile()
+command! SpearToggle call <sid>ToggleSpearMenu()
+command! -nargs=1 SpearOpen call <sid>OpenFile(<f-args>)
