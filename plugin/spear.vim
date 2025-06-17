@@ -5,7 +5,7 @@
 " TODO: make maps for prev and next file
 " TODO: remember last position of pinned files when closing/opening
 " TODO: cleanup empty lists
-" TODO: add options like save_on_close, close_when_saved, ignore_blank_lines, etc
+" TODO: add options like save_on_quit, close_when_saved, ignore_blank_lines, etc
 " TODO: give menu a fancy display
 " TODO: ? to show maps
 
@@ -182,19 +182,68 @@ fun! s:DeleteFile()
   endif
 endfun
 
+" TODO: logic for blank lines?
+fun! s:NextPrevFile(direction)
+  let list = s:GetListFile()
+  let lines = readfile(list)
+  let file_id = index(lines, expand('%'))
+  if a:direction == 'n'
+    " next
+    if file_id != -1
+      if file_id+1 == len(lines)
+        echo 'At end of Spear list.'
+      else
+        call s:OpenFile(file_id+2)
+      endif
+    else
+      call s:OpenFile(1)
+    endif
+  else
+    " previous
+    if file_id != -1
+      if file_id == 0
+        echo 'At beginning of Spear list.'
+      else
+        call s:OpenFile(file_id)
+      endif
+    else
+      call s:OpenFile(len(lines))
+    endif
+  endif
+endfun
+
+fun! s:NextFile()
+  let list = s:GetListFile()
+  let lines = readfile(list)
+  let file_id = index(lines, expand('%'))
+  if file_id != -1
+    if file_id+1 == len(lines)
+      echo 'At end of Spear list.'
+    else
+      call s:OpenFile(file_id+2)
+    endif
+  endif
+endfun
+
+fun! s:PrevFile()
+  let list = s:GetListFile()
+  let lines = readfile(list)
+  let file_id = index(lines, expand('%'))
+  if file_id != -1
+    if file_id == 0
+      echo 'At beginning of Spear list.'
+    else
+      call s:OpenFile(file_id)
+    endif
+  endif
+endfun
+
 fun! s:CreateSpearMenuMaps()
   nnoremap <silent> <buffer> <cr> :call <sid>OpenFile(0)<cr>
-  nnoremap <silent> <buffer> a    :call <sid>AddFile()<cr>
+  nnoremap <silent> <buffer> A    :call <sid>AddFile()<cr>
   nnoremap <silent> <buffer> X    :call <sid>DeleteFile()<cr>
   nnoremap          <buffer> s    :call <sid>SpearSave(1)<cr>
   nnoremap <silent> <buffer> q    :close<cr>
-endfun
-
-fun! s:SpearTextChanged()
-  setlocal nomodified
-  " if has('conceal')
-  "   setlocal conceallevel=0
-  " endif
 endfun
 
 fun! s:OpenSpearMenu()
@@ -211,15 +260,9 @@ fun! s:OpenSpearMenu()
     call s:CreateSpearMenuMaps()
     augroup spear_menu_opened
       au!
-      au TextChanged,TextChangedI <buffer> call <sid>SpearTextChanged()
+      au TextChanged,TextChangedI <buffer> setlocal nomodified
       au BufWriteCmd <buffer> call <sid>SpearSave(1)
     augroup END
-    " concealing logic/pattern from justinmk's vim-dirvish
-    " if has('conceal')
-    "   let sep = exists('+shellslash') && !&shellslash ? '\\' : '/'
-    "   exe 'syntax match SpearPathHead =.*'.sep.'\ze[^'.sep.']\+'.sep.'\?$= conceal'
-    "   setlocal concealcursor=nvc conceallevel=2
-    " endif
     let s:spear_is_open = 1
   endif
 endfun
@@ -270,3 +313,5 @@ command! SpearAdd call <sid>AddFile()
 command! SpearDelete call <sid>DeleteFile()
 command! SpearToggle call <sid>ToggleSpearMenu()
 command! -nargs=1 SpearOpen call <sid>OpenFile(<f-args>)
+command! SpearNext call <sid>NextPrevFile('n')
+command! SpearPrev call <sid>NextPrevFile('p')
