@@ -2,12 +2,11 @@
 " Author:     Austin W. Smith
 " Version:    0.8.0
 
-" TODO: use autoload functions
+" TODO: cleanup empty lists from spear_data directory
+" TODO: add options like save_on_quit, save_on_change, close_when_saved, keep backslashes, etc
 " TODO: optional :Commands, disabled by default to keep it minimal since
 " mappings are the intended way to use Spear
-" TODO: remember last position of pinned files when closing/opening
-" TODO: cleanup empty lists from spear_data directory
-" TODO: add options like save_on_quit, close_when_saved, keep backslashes, etc
+" TODO: use autoload functions?
 " TODO: something to do with terminal support, idk the details yet
 " TODO: give menu a fancy display
 " TODO: maybe show a list of all saved lists, a list list if you will
@@ -25,6 +24,7 @@ let s:spear_is_open = 0
 let s:spear_win_height = 8
 let s:spear_data_dir = fnamemodify(expand($MYVIMRC), ':h') .'/spear_data/'
 let s:spear_buf_name = '-Spear List-'
+let s:spear_lines = []
 let s:last_file_id = 0
 let s:last_win = -1
 let s:last_buf = ''
@@ -33,8 +33,8 @@ if !isdirectory(s:spear_data_dir)
   call mkdir(s:spear_data_dir)
 endif
 
-" VARIABLES FOR USERS TO ADJUST SETTINGS:
-" =======================================
+" VARIABLES FOR USER SETTINGS:
+" ============================
 
 " If enabled, a prompt will be shown to delete blank lines or invalid files
 " when opened from the Spear List, or with :SpearOpen command/mappings
@@ -63,7 +63,18 @@ fun! s:GetListFile()
   return list
 endfun
 
-" update the spear list window with current info
+" Save the spear list and update a local variable array of spear's list
+fun! s:SpearSave(close)
+  let list = s:GetListFile()
+  let s:spear_lines = readfile(list)
+  call writefile(getline(1,'$'), list)
+  if a:close
+    call s:CloseSpearMenu()
+    echo 'Saved Spear List'
+  endif
+endfun
+
+" Update the spear list window with current info.
 fun! s:SpearRefresh()
   let spear_id = bufwinnr(s:spear_buf_name)
   if spear_id == -1 | return | endif
@@ -78,15 +89,6 @@ fun! s:SpearRefresh()
   call setpos('.', cursor_pos)
   if orig_win != spear_id
     exec orig_win .'wincmd w'
-  endif
-endfun
-
-fun! s:SpearSave(close)
-  let list = s:GetListFile()
-  call writefile(getline(1,'$'), list)
-  if a:close
-    call s:CloseSpearMenu()
-    echo 'Saved Spear List'
   endif
 endfun
 
@@ -106,14 +108,12 @@ fun! s:AddFile()
   if winnr() == bufwinnr(s:spear_buf_name)
     call s:SpearSave(0)
   endif
-  let list = s:GetListFile()
-  let lines = readfile(list)
 
   " " replace \ with / only during duplication checking
   " " disabled for now because it seems pointless
   " let file_slash = substitute(file_to_add, '\', '/', 'g')
   " let lines_slash = []
-  " for i_line in lines
+  " for i_line in s:spear_lines
   "   call add(lines_slash, substitute(i_line, '\', '/', 'g'))
   " endfor
   " if index(lines_slash, file_slash) != -1
@@ -122,27 +122,27 @@ fun! s:AddFile()
 
   " replace \ with /
   let file_to_add = substitute(file_to_add, '\', '/', 'g')
-  if index(lines, file_to_add) != -1
+  if index(s:spear_lines, file_to_add) != -1
     echohl WarningMsg | echo 'File already added' | echohl None
     return
   endif
 
   " check for empty lines
-  let blank_idx = index(lines, '')
+  let blank_idx = index(s:spear_lines, '')
   if blank_idx != -1
-    let lines[blank_idx] = file_to_add
+    let s:spear_lines[blank_idx] = file_to_add
   else
-    call add(lines, file_to_add)
+    call add(s:spear_lines, file_to_add)
   endif
 
-  call writefile(lines, list)
+  call writefile(s:spear_lines, s:GetListFile())
   call s:SpearRefresh()
   if bufwinnr(s:spear_buf_name) == -1
     echo 'Added "'. expand('%:t') .'" to Spear List'
   endif
 endfun
 
-" Opens/edits a file from the spear list:
+" Opens a file from the spear list:
 " Either open file at position a:num,
 " or open the selected line in the spear list window
 fun! s:OpenFile(num, prompt = 1)
@@ -154,19 +154,17 @@ fun! s:OpenFile(num, prompt = 1)
     echo 'Spear List is not open, there is no file to select.'
     return
   endif
-  let list = s:GetListFile()
-  let lines = readfile(list)
   let invalid_file_id = 0
   " get filename
   if a:num == 0
     let saved_file = getline('.')
   else
-    if a:num > len(lines) || a:num < 1
+    if a:num > len(s:spear_lines) || a:num < 1
       echohl WarningMsg | echo 'No file #'. a:num | echohl None
       return
     endif
-    let saved_file = lines[a:num-1]
-    let invalid_file_id = index(lines, saved_file)
+    let saved_file = s:spear_lines[a:num-1]
+    let invalid_file_id = index(s:spear_lines, saved_file)
   endif
   if winnr() == spear_id
     let invalid_file_id = line('.')
@@ -176,9 +174,11 @@ fun! s:OpenFile(num, prompt = 1)
   " open filename
   if filereadable(saved_file)
     if a:prompt
-      let s:last_file_id = index(lines,saved_file)
+      " tracking for GotoNexPrevFile()
+      let s:last_file_id = index(s:spear_lines, saved_file)
     endif
     exec 'silent! edit '. saved_file
+    normal! g`"
   elseif a:prompt
     echohl WarningMsg | echo 'File not found!' | echohl None
     let msg = ''
@@ -191,8 +191,8 @@ fun! s:OpenFile(num, prompt = 1)
     endif
     let ask = confirm(msg, "&Yes\n&no", 1)
     if ask == 2 | return | end
-    call remove(lines, invalid_file_id-1)
-    call writefile(lines, list)
+    call remove(s:spear_lines, invalid_file_id-1)
+    call writefile(s:spear_lines, s:GetListFile())
   endif
 endfun
 
@@ -204,22 +204,21 @@ fun! s:DeleteFile()
     call s:SpearSave(0)
   endif
   let list = s:GetListFile()
-  let lines = readfile(list)
   if expand('%') == s:spear_buf_name
     " if spear is open, remove current line (filename) from list
     let line_num = line('.') - 1
-    let line = remove(lines, line_num)
-    call writefile(lines,list)
+    let line = remove(s:spear_lines, line_num)
+    call writefile(s:spear_lines,list)
     call s:SpearRefresh()
   else
     " if spear is closed, remove current buffer's filename from list
     let line = substitute(expand('%'), '\', '/', 'g')
-    let len_before = len(lines)
-    call filter(lines, 'v:val !=# line')
-    call writefile(lines, list)
+    let len_before = len(s:spear_lines)
+    call filter(s:spear_lines, 'v:val !=# line')
+    call writefile(s:spear_lines, list)
     call s:SpearRefresh()
     if bufwinnr(s:spear_buf_name) == -1
-      if len_before >= len(lines)
+      if len_before >= len(s:spear_lines)
         echo 'Removed "'. fnamemodify(line, ':t') .'" from Spear List'
       else
         echohl WarningMsg | echo 'File not found in list' | echohl None
@@ -228,12 +227,13 @@ fun! s:DeleteFile()
   endif
 endfun
 
+" Open the next or previous file in the Spear List.
+" Does nothing if you get to the end/beginning of the list.
+" TODO: option for cycling
 " TODO: maybe detect and inform about blank lines?
 fun! s:GotoNextPrevFile(direction)
-  let list = s:GetListFile()
-  let lines = readfile(list)
-  let listlen = len(lines)
-  let file_id = index(lines, expand('%'))
+  let listlen = len(s:spear_lines)
+  let file_id = index(s:spear_lines, expand('%'))
   " set variables based on moving to prev or next
   let position_check = a:direction == 'next' ?
         \              (s:last_file_id+1 == listlen) : (s:last_file_id == 0)
@@ -251,7 +251,7 @@ fun! s:CreateSpearMenuMaps()
   nnoremap <silent> <buffer> <cr> :call <SID>OpenFile(0)<cr>
   nnoremap <silent> <buffer> A    :call <SID>AddFile()<cr>
   nnoremap <silent> <buffer> X    :call <SID>DeleteFile()<cr>
-  nnoremap          <buffer> s    :call <SID>SpearSave(1)<cr>
+  nnoremap          <buffer> s    :call <SID>SpearSave(0)<cr>
   nnoremap <silent> <buffer> q    :close<cr>
 endfun
 
@@ -276,7 +276,6 @@ fun! s:OpenSpearMenu()
   endif
 endfun
 
-" Close spear and return to the previous window.
 fun! s:CloseSpearMenu()
   let spear_id = bufwinnr(s:spear_buf_name)
   if winbufnr(s:last_win) != -1
@@ -298,15 +297,24 @@ endfun
 " Track the previous non-spear buffer/window.
 fun! s:Tracker()
   let spear_id = bufwinnr(s:spear_buf_name)
+  let bufname = expand('%')
   if s:spear_is_open && spear_id != -1
     if winnr() != spear_id
-      if expand('%') != s:spear_buf_name " in case of duplicate spear windows
-        let s:last_buf = expand('%')
+      if bufname != s:spear_buf_name " in case of duplicate spear windows
+        let s:last_buf = bufname
         let s:last_win = winnr()
+      endif
+      let spear_file_id = index(s:spear_lines, bufname)
+      if spear_file_id != -1
+        " tracking for GotoNexPrevFile()
+        let s:last_file_id = spear_file_id
       endif
     endif
   endif
 endfun
+
+" POST SCRIPT INIT:
+" =================
 
 augroup spear_bufwin_tracker
   au!
@@ -319,3 +327,6 @@ command! SpearToggle call <SID>ToggleSpearMenu()
 command! -nargs=1 SpearOpen call <SID>OpenFile(<f-args>)
 command! SpearNext call <SID>GotoNextPrevFile('next')
 command! SpearPrev call <SID>GotoNextPrevFile('prev')
+
+" update local spear list on startup
+let s:spear_lines = readfile(s:GetListFile())
