@@ -1,13 +1,20 @@
 " Spear - similar to a harpoon
 " Author:     Austin W. Smith
-" Version:    0.7.0
+" Version:    0.8.0
 
-" TODO: make maps for prev and next file
+" TODO: use autoload functions
+" TODO: optional :Commands, disabled by default to keep it minimal since
+" mappings are the intended way to use Spear
 " TODO: remember last position of pinned files when closing/opening
-" TODO: cleanup empty lists
-" TODO: add options like save_on_quit, close_when_saved, ignore_blank_lines, etc
+" TODO: cleanup empty lists from spear_data directory
+" TODO: add options like save_on_quit, close_when_saved, keep backslashes, etc
+" TODO: something to do with terminal support, idk the details yet
 " TODO: give menu a fancy display
+" TODO: maybe show a list of all saved lists, a list list if you will
 " TODO: ? to show maps
+
+" INITIALIZATION:
+" ===============
 
 if exists('g:loaded_spear')
   finish
@@ -18,10 +25,32 @@ let s:spear_is_open = 0
 let s:spear_win_height = 8
 let s:spear_data_dir = fnamemodify(expand($MYVIMRC), ':h') .'/spear_data/'
 let s:spear_buf_name = '-Spear List-'
+let s:last_file_id = 0
 let s:last_win = -1
 let s:last_buf = ''
 
-" retrieves file list based on current working directory
+if !isdirectory(s:spear_data_dir)
+  call mkdir(s:spear_data_dir)
+endif
+
+" VARIABLES FOR USERS TO ADJUST SETTINGS:
+" =======================================
+
+" If enabled, a prompt will be shown to delete blank lines or invalid files
+" when opened from the Spear List, or with :SpearOpen command/mappings
+"
+" Does not affect :SpearNext and :SpearPrev
+if !exists('g:prompt_delete_blank_lines')
+  let g:prompt_delete_blank_lines = 0
+endif
+if !exists('g:prompt_delete_invalid_files')
+  let g:prompt_delete_invalid_files = 0
+endif
+
+" FUNCTIONS:
+" ==========
+
+" Retrieves file list based on current working directory.
 " use shortened cwd + sha256 so file names hopefully don't get too long
 fun! s:GetListFile()
   let cwd = substitute(getcwd(), '\', '/', 'g')
@@ -34,7 +63,7 @@ fun! s:GetListFile()
   return list
 endfun
 
-" update the spear menu with current info
+" update the spear list window with current info
 fun! s:SpearRefresh()
   let spear_id = bufwinnr(s:spear_buf_name)
   if spear_id == -1 | return | endif
@@ -61,6 +90,8 @@ fun! s:SpearSave(close)
   endif
 endfun
 
+" Add the current buffer (or whichever buffer was open when Spear was opened)
+" to the Spear List.
 fun! s:AddFile()
   let file_to_add = expand('%:p')
   if expand('%') == s:spear_buf_name
@@ -111,15 +142,21 @@ fun! s:AddFile()
   endif
 endfun
 
-fun! s:OpenFile(num)
+" Opens/edits a file from the spear list:
+" Either open file at position a:num,
+" or open the selected line in the spear list window
+fun! s:OpenFile(num, prompt = 1)
   let saved_file = ''
   let spear_id = bufwinnr(s:spear_buf_name)
   if winnr() == spear_id
     call s:SpearSave(0)
+  elseif a:num == 0
+    echo 'Spear List is not open, there is no file to select.'
+    return
   endif
   let list = s:GetListFile()
   let lines = readfile(list)
-  let blank_line = 0
+  let invalid_file_id = 0
   " get filename
   if a:num == 0
     let saved_file = getline('.')
@@ -129,30 +166,39 @@ fun! s:OpenFile(num)
       return
     endif
     let saved_file = lines[a:num-1]
+    let invalid_file_id = index(lines, saved_file)
   endif
   if winnr() == spear_id
-    let blank_line = line('.')
+    let invalid_file_id = line('.')
     call s:CloseSpearMenu()
   endif
 
   " open filename
   if filereadable(saved_file)
+    if a:prompt
+      let s:last_file_id = index(lines,saved_file)
+    endif
     exec 'silent! edit '. saved_file
-  else
+  elseif a:prompt
     echohl WarningMsg | echo 'File not found!' | echohl None
     let msg = ''
     if saved_file == ''
+      if !g:prompt_delete_blank_lines | return | endif
       let msg = 'Would you like to delete this blank line?'
     else
+      if !g:prompt_delete_invalid_files | return | endif
       let msg = 'Would you like to delete "'. saved_file .'"?'
     endif
     let ask = confirm(msg, "&Yes\n&no", 1)
     if ask == 2 | return | end
-    call remove(lines, blank_line-1)
+    call remove(lines, invalid_file_id-1)
     call writefile(lines, list)
   endif
 endfun
 
+" Removes a file from the spear list:
+" Either remove the current buffer's name, or the
+" currently selected line in the Spear List.
 fun! s:DeleteFile()
   if winnr() == bufwinnr(s:spear_buf_name)
     call s:SpearSave(0)
@@ -160,13 +206,13 @@ fun! s:DeleteFile()
   let list = s:GetListFile()
   let lines = readfile(list)
   if expand('%') == s:spear_buf_name
-    " if list is open, remove current line from list
+    " if spear is open, remove current line (filename) from list
     let line_num = line('.') - 1
     let line = remove(lines, line_num)
     call writefile(lines,list)
     call s:SpearRefresh()
   else
-    " if list is closed, remove current file from list
+    " if spear is closed, remove current buffer's filename from list
     let line = substitute(expand('%'), '\', '/', 'g')
     let len_before = len(lines)
     call filter(lines, 'v:val !=# line')
@@ -182,67 +228,30 @@ fun! s:DeleteFile()
   endif
 endfun
 
-" TODO: logic for blank lines?
-fun! s:NextPrevFile(direction)
+" TODO: maybe detect and inform about blank lines?
+fun! s:GotoNextPrevFile(direction)
   let list = s:GetListFile()
   let lines = readfile(list)
+  let listlen = len(lines)
   let file_id = index(lines, expand('%'))
-  if a:direction == 'n'
-    " next
-    if file_id != -1
-      if file_id+1 == len(lines)
-        echo 'At end of Spear list.'
-      else
-        call s:OpenFile(file_id+2)
-      endif
-    else
-      call s:OpenFile(1)
-    endif
+  " set variables based on moving to prev or next
+  let position_check = a:direction == 'next' ?
+        \              (s:last_file_id+1 == listlen) : (s:last_file_id == 0)
+  let offset         = a:direction == 'next' ? 1     : -1
+  let limit_msg      = a:direction == 'next' ? 'end' : 'beginning'
+  if position_check
+    echo 'At '. limit_msg .' of Spear List'
   else
-    " previous
-    if file_id != -1
-      if file_id == 0
-        echo 'At beginning of Spear list.'
-      else
-        call s:OpenFile(file_id)
-      endif
-    else
-      call s:OpenFile(len(lines))
-    endif
-  endif
-endfun
-
-fun! s:NextFile()
-  let list = s:GetListFile()
-  let lines = readfile(list)
-  let file_id = index(lines, expand('%'))
-  if file_id != -1
-    if file_id+1 == len(lines)
-      echo 'At end of Spear list.'
-    else
-      call s:OpenFile(file_id+2)
-    endif
-  endif
-endfun
-
-fun! s:PrevFile()
-  let list = s:GetListFile()
-  let lines = readfile(list)
-  let file_id = index(lines, expand('%'))
-  if file_id != -1
-    if file_id == 0
-      echo 'At beginning of Spear list.'
-    else
-      call s:OpenFile(file_id)
-    endif
+    let s:last_file_id += offset
+    call s:OpenFile(s:last_file_id+1, 0)
   endif
 endfun
 
 fun! s:CreateSpearMenuMaps()
-  nnoremap <silent> <buffer> <cr> :call <sid>OpenFile(0)<cr>
-  nnoremap <silent> <buffer> A    :call <sid>AddFile()<cr>
-  nnoremap <silent> <buffer> X    :call <sid>DeleteFile()<cr>
-  nnoremap          <buffer> s    :call <sid>SpearSave(1)<cr>
+  nnoremap <silent> <buffer> <cr> :call <SID>OpenFile(0)<cr>
+  nnoremap <silent> <buffer> A    :call <SID>AddFile()<cr>
+  nnoremap <silent> <buffer> X    :call <SID>DeleteFile()<cr>
+  nnoremap          <buffer> s    :call <SID>SpearSave(1)<cr>
   nnoremap <silent> <buffer> q    :close<cr>
 endfun
 
@@ -261,13 +270,13 @@ fun! s:OpenSpearMenu()
     augroup spear_menu_opened
       au!
       au TextChanged,TextChangedI <buffer> setlocal nomodified
-      au BufWriteCmd <buffer> call <sid>SpearSave(1)
+      au BufWriteCmd <buffer> call <SID>SpearSave(1)
     augroup END
     let s:spear_is_open = 1
   endif
 endfun
 
-" close spear and return to the previous window
+" Close spear and return to the previous window.
 fun! s:CloseSpearMenu()
   let spear_id = bufwinnr(s:spear_buf_name)
   if winbufnr(s:last_win) != -1
@@ -286,7 +295,7 @@ fun! s:ToggleSpearMenu()
   endif
 endfun
 
-" track the previous non-spear buffer/window
+" Track the previous non-spear buffer/window.
 fun! s:Tracker()
   let spear_id = bufwinnr(s:spear_buf_name)
   if s:spear_is_open && spear_id != -1
@@ -299,19 +308,14 @@ fun! s:Tracker()
   endif
 endfun
 
-augroup spear_tracker
+augroup spear_bufwin_tracker
   au!
-  au BufEnter * call <sid>Tracker()
+  au BufEnter * call <SID>Tracker()
 augroup END
 
-" create data storage directory
-if !isdirectory(s:spear_data_dir)
-  call mkdir(s:spear_data_dir)
-endif
-
-command! SpearAdd call <sid>AddFile()
-command! SpearDelete call <sid>DeleteFile()
-command! SpearToggle call <sid>ToggleSpearMenu()
-command! -nargs=1 SpearOpen call <sid>OpenFile(<f-args>)
-command! SpearNext call <sid>NextPrevFile('n')
-command! SpearPrev call <sid>NextPrevFile('p')
+command! SpearAdd call <SID>AddFile()
+command! SpearDelete call <SID>DeleteFile()
+command! SpearToggle call <SID>ToggleSpearMenu()
+command! -nargs=1 SpearOpen call <SID>OpenFile(<f-args>)
+command! SpearNext call <SID>GotoNextPrevFile('next')
+command! SpearPrev call <SID>GotoNextPrevFile('prev')
