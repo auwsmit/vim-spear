@@ -1,14 +1,14 @@
 " Spear - similar to a harpoon
 " Author:     Austin W. Smith
-" Version:    0.8.0
+" Version:    0.9.0
 
-" TODO: cleanup empty lists from spear_data directory
-" TODO: add options like save_on_quit, save_on_change, close_when_saved, keep backslashes, etc
+" TODO: add option to convert_backslashes, prev_next_cycle, etc
 " TODO: optional :Commands, disabled by default to keep it minimal since
 " mappings are the intended way to use Spear
 " TODO: use autoload functions?
 " TODO: something to do with terminal support, idk the details yet
 " TODO: give menu a fancy display
+" TODO: cleanup empty lists from spear_data directory
 " TODO: maybe show a list of all saved lists, a list list if you will
 " TODO: ? to show maps
 
@@ -22,6 +22,7 @@ let g:loaded_spear = 1
 
 let s:spear_is_open = 0
 let s:spear_win_height = 8
+" TODO: weird edge case: what if no vimrc
 let s:spear_data_dir = fnamemodify(expand($MYVIMRC), ':h') .'/spear_data/'
 let s:spear_buf_name = '-Spear List-'
 let s:spear_lines = []
@@ -38,13 +39,27 @@ endif
 
 " If enabled, a prompt will be shown to delete blank lines or invalid files
 " when opened from the Spear List, or with :SpearOpen command/mappings
-"
+" ---
 " Does not affect :SpearNext and :SpearPrev
-if !exists('g:prompt_delete_blank_lines')
-  let g:prompt_delete_blank_lines = 0
+if !exists('g:spear_delete_blank_lines')
+  let g:spear_delete_blank_lines = 0
 endif
-if !exists('g:prompt_delete_invalid_files')
-  let g:prompt_delete_invalid_files = 0
+if !exists('g:spear_delete_invalid_files')
+  let g:spear_delete_invalid_files = 0
+endif
+
+" If enabled, Spear will quit when saved (more like Harpoon).
+if !exists('g:spear_quit_on_save')
+  let g:spear_quit_on_save = 0
+endif
+
+" If enabled, Spear will auto-save
+" all changes, making manual saving unnecessary.
+" ---
+" By default, Spear only saves when you add/remove/open a file,
+" use the save hotkey, or manually save with a command like :w.
+if !exists('g:spear_save_on_change')
+  let g:spear_save_on_change = 0
 endif
 
 " FUNCTIONS:
@@ -64,13 +79,12 @@ fun! s:GetListFile()
 endfun
 
 " Save the spear list and update a local variable array of spear's list
-fun! s:SpearSave(close)
+fun! s:SpearSave(msg = 0)
   let list = s:GetListFile()
-  let s:spear_lines = readfile(list)
   call writefile(getline(1,'$'), list)
-  if a:close
-    call s:CloseSpearMenu()
-    echo 'Saved Spear List'
+  let s:spear_lines = readfile(list)
+  if a:msg && !g:spear_save_on_change
+    echo 'Spear List saved'
   endif
 endfun
 
@@ -83,9 +97,9 @@ fun! s:SpearRefresh()
     exec spear_id .'wincmd w'
   endif
   let cursor_pos = getpos('.')
-  %delete
+  %delete _
   exec 'silent! keepalt read '. s:GetListFile()
-  1delete
+  1delete _
   call setpos('.', cursor_pos)
   if orig_win != spear_id
     exec orig_win .'wincmd w'
@@ -106,7 +120,7 @@ fun! s:AddFile()
   endif
 
   if winnr() == bufwinnr(s:spear_buf_name)
-    call s:SpearSave(0)
+    call s:SpearSave()
   endif
 
   " " replace \ with / only during duplication checking
@@ -149,7 +163,7 @@ fun! s:OpenFile(num, prompt = 1)
   let saved_file = ''
   let spear_id = bufwinnr(s:spear_buf_name)
   if winnr() == spear_id
-    call s:SpearSave(0)
+    call s:SpearSave()
   elseif a:num == 0
     echo 'Spear List is not open, there is no file to select.'
     return
@@ -183,10 +197,10 @@ fun! s:OpenFile(num, prompt = 1)
     echohl WarningMsg | echo 'File not found!' | echohl None
     let msg = ''
     if saved_file == ''
-      if !g:prompt_delete_blank_lines | return | endif
+      if !g:spear_delete_blank_lines | return | endif
       let msg = 'Would you like to delete this blank line?'
     else
-      if !g:prompt_delete_invalid_files | return | endif
+      if !g:spear_delete_invalid_files | return | endif
       let msg = 'Would you like to delete "'. saved_file .'"?'
     endif
     let ask = confirm(msg, "&Yes\n&no", 1)
@@ -201,7 +215,7 @@ endfun
 " currently selected line in the Spear List.
 fun! s:DeleteFile()
   if winnr() == bufwinnr(s:spear_buf_name)
-    call s:SpearSave(0)
+    call s:SpearSave()
   endif
   let list = s:GetListFile()
   if expand('%') == s:spear_buf_name
@@ -251,8 +265,16 @@ fun! s:CreateSpearMenuMaps()
   nnoremap <silent> <buffer> <cr> :call <SID>OpenFile(0)<cr>
   nnoremap <silent> <buffer> A    :call <SID>AddFile()<cr>
   nnoremap <silent> <buffer> X    :call <SID>DeleteFile()<cr>
-  nnoremap          <buffer> s    :call <SID>SpearSave(0)<cr>
-  nnoremap <silent> <buffer> q    :close<cr>
+  nnoremap <silent> <buffer> q    :call <SID>CloseSpearMenu()<cr>
+  nnoremap <silent> <buffer> s    :call <SID>SpearSaveMapHelper()<cr>
+endfun
+
+fun! s:SpearSaveMapHelper()
+  if g:spear_save_on_change | return | endif
+  call s:SpearSave(1)
+  if g:spear_quit_on_save
+    call s:CloseSpearMenu()
+  endif
 endfun
 
 fun! s:OpenSpearMenu()
@@ -262,15 +284,30 @@ fun! s:OpenSpearMenu()
   if spear_id == -1
     exec 'botright '. s:spear_win_height .'split '. s:spear_buf_name
     exec 'silent! keepalt read '. s:GetListFile()
-    1delete | normal! ggF\l
+    1delete _ | normal! ggF\l
     setlocal filetype=spear
     setlocal buftype=acwrite bufhidden=wipe
     setlocal number norelativenumber
     call s:CreateSpearMenuMaps()
+    " Hacky solution to prevent :wq quitting
+    " the next window after BufWriteCmd fires.
+    " might remove :w saving entirely in favor of only hotkey & auto saving
+    if g:spear_quit_on_save
+      cnoreabbrev <buffer> wq w
+    endif
     augroup spear_menu_opened
       au!
-      au TextChanged,TextChangedI <buffer> setlocal nomodified
-      au BufWriteCmd <buffer> call <SID>SpearSave(1)
+      au TextChanged,TextChangedI <buffer>
+            \   setlocal nomodified
+            \ | if g:spear_save_on_change
+            \ |   call <SID>SpearSave()
+            \ | endif
+
+      au BufWriteCmd <buffer>
+            \   call <SID>SpearSave(1)
+            \ | if g:spear_quit_on_save
+            \ |   call <SID>CloseSpearMenu()
+            \ | endif
     augroup END
     let s:spear_is_open = 1
   endif
@@ -324,7 +361,7 @@ augroup END
 command! SpearAdd call <SID>AddFile()
 command! SpearDelete call <SID>DeleteFile()
 command! SpearToggle call <SID>ToggleSpearMenu()
-command! -nargs=1 SpearOpen call <SID>OpenFile(<f-args>)
+command! -nargs=1 SpearOpenFile call <SID>OpenFile(<f-args>)
 command! SpearNext call <SID>GotoNextPrevFile('next')
 command! SpearPrev call <SID>GotoNextPrevFile('prev')
 
