@@ -2,7 +2,6 @@
 " Author:     Austin W. Smith
 " Version:    0.9.0
 
-" TODO: add option to convert_backslashes, prev_next_cycle, etc
 " TODO: optional :Commands, disabled by default to keep it minimal since
 " mappings are the intended way to use Spear
 " TODO: use autoload functions?
@@ -22,7 +21,6 @@ let g:loaded_spear = 1
 
 let s:spear_is_open = 0
 let s:spear_win_height = 8
-" TODO: weird edge case: what if no vimrc
 let s:spear_data_dir = fnamemodify(expand($MYVIMRC), ':h') .'/spear_data/'
 let s:spear_buf_name = '-Spear List-'
 let s:spear_lines = []
@@ -53,13 +51,25 @@ if !exists('g:spear_quit_on_save')
   let g:spear_quit_on_save = 0
 endif
 
-" If enabled, Spear will auto-save
-" all changes, making manual saving unnecessary.
+" If enabled, Spear will auto-save all changes,
+" making manual saving unnecessary.
 " ---
 " By default, Spear only saves when you add/remove/open a file,
 " use the save hotkey, or manually save with a command like :w.
 if !exists('g:spear_save_on_change')
   let g:spear_save_on_change = 0
+endif
+
+" If enabled, Spear will cycle when reaching the start or
+" end of the list when going to the next or previous file.
+if !exists('g:spear_prev_next_cycle')
+  let g:spear_prev_next_cycle = 0
+endif
+
+" If disabled, backslashes are not converted
+" to forward slashes in the Spear List
+if !exists('g:spear_convert_backslashes')
+  let g:spear_convert_backslashes = 1
 endif
 
 " FUNCTIONS:
@@ -123,22 +133,20 @@ fun! s:AddFile()
     call s:SpearSave()
   endif
 
-  " " replace \ with / only during duplication checking
-  " " disabled for now because it seems pointless
-  " let file_slash = substitute(file_to_add, '\', '/', 'g')
-  " let lines_slash = []
-  " for i_line in s:spear_lines
-  "   call add(lines_slash, substitute(i_line, '\', '/', 'g'))
-  " endfor
-  " if index(lines_slash, file_slash) != -1
-  "   return
-  " endif
-
-  " replace \ with /
-  let file_to_add = substitute(file_to_add, '\', '/', 'g')
-  if index(s:spear_lines, file_to_add) != -1
+  " replace \ with / during duplication checking
+  let file_slash = substitute(file_to_add, '\', '/', 'g')
+  let lines_slash = []
+  for i_line in s:spear_lines
+    call add(lines_slash, substitute(i_line, '\', '/', 'g'))
+  endfor
+  if index(lines_slash, file_slash) != -1
     echohl WarningMsg | echo 'File already added' | echohl None
     return
+  endif
+
+  " replace \ with / in spear list
+  if g:spear_convert_backslashes
+    let file_to_add = file_slash
   endif
 
   " check for empty lines
@@ -165,7 +173,7 @@ fun! s:OpenFile(num, prompt = 1)
   if winnr() == spear_id
     call s:SpearSave()
   elseif a:num == 0
-    echo 'Spear List is not open, there is no file to select.'
+    echohl WarningMsg | echo 'Error: Spear is not open to select a file.' | echohl None
     return
   endif
   let invalid_file_id = 0
@@ -192,7 +200,7 @@ fun! s:OpenFile(num, prompt = 1)
       let s:last_file_id = index(s:spear_lines, saved_file)
     endif
     exec 'silent! edit '. saved_file
-    normal! g`"
+    silent! normal! g`"
   elseif a:prompt
     echohl WarningMsg | echo 'File not found!' | echohl None
     let msg = ''
@@ -218,7 +226,9 @@ fun! s:DeleteFile()
     call s:SpearSave()
   endif
   let list = s:GetListFile()
-  if expand('%') == s:spear_buf_name
+  let bufname = expand('%')
+  let matchstr = ''
+  if bufname == s:spear_buf_name
     " if spear is open, remove current line (filename) from list
     let line_num = line('.') - 1
     let line = remove(s:spear_lines, line_num)
@@ -226,14 +236,14 @@ fun! s:DeleteFile()
     call s:SpearRefresh()
   else
     " if spear is closed, remove current buffer's filename from list
-    let line = substitute(expand('%'), '\', '/', 'g')
+    let matchstr = g:spear_convert_backslashes ? s:SlashConvert(bufname) : bufname
     let len_before = len(s:spear_lines)
-    call filter(s:spear_lines, 'v:val !=# line')
+    call filter(s:spear_lines, 'v:val !=# matchstr')
     call writefile(s:spear_lines, list)
     call s:SpearRefresh()
     if bufwinnr(s:spear_buf_name) == -1
       if len_before >= len(s:spear_lines)
-        echo 'Removed "'. fnamemodify(line, ':t') .'" from Spear List'
+        echo 'Removed "'. fnamemodify(bufname, ':t') .'" from Spear List'
       else
         echohl WarningMsg | echo 'File not found in list' | echohl None
       endif
@@ -242,22 +252,26 @@ fun! s:DeleteFile()
 endfun
 
 " Open the next or previous file in the Spear List.
-" Does nothing if you get to the end/beginning of the list.
-" TODO: option for cycling
-" TODO: maybe detect and inform about blank lines?
 fun! s:GotoNextPrevFile(direction)
   let listlen = len(s:spear_lines)
   let file_id = index(s:spear_lines, expand('%'))
   " set variables based on moving to prev or next
-  let position_check = a:direction == 'next' ?
-        \              (s:last_file_id+1 == listlen) : (s:last_file_id == 0)
-  let offset         = a:direction == 'next' ? 1     : -1
-  let limit_msg      = a:direction == 'next' ? 'end' : 'beginning'
+  let position_check = (a:direction == 'next' ? (s:last_file_id+1 == listlen) : (s:last_file_id == 0))
+  let offset         = (a:direction == 'next' ? 1 : -1)
   if position_check
-    echo 'At '. limit_msg .' of Spear List'
+    if g:spear_prev_next_cycle
+      let s:last_file_id = (a:direction == 'next' ? 0 : listlen-1)
+      call s:OpenFile(s:last_file_id+1, 0)
+      let msg = a:direction == 'prev' ? 'end' : 'beginning'
+      echo 'Cycled to '. msg .' of Spear List'
+    else
+      let msg = a:direction == 'next' ? 'end' : 'beginning'
+      echo 'At '. msg .' of Spear List'
+    endif
   else
     let s:last_file_id += offset
     call s:OpenFile(s:last_file_id+1, 0)
+    echo 'Moved to file '. (s:last_file_id+1) .' of Spear List'
   endif
 endfun
 
@@ -282,9 +296,15 @@ fun! s:OpenSpearMenu()
   let s:last_win = winnr()
   let spear_id = bufwinnr(s:spear_buf_name)
   if spear_id == -1
+    let is_open_id = index(s:spear_lines, substitute(expand('%'), '\', '/', 'g'))
     exec 'botright '. s:spear_win_height .'split '. s:spear_buf_name
     exec 'silent! keepalt read '. s:GetListFile()
-    1delete _ | normal! ggF\l
+    1delete _
+    if is_open_id == -1
+      normal! gg
+    else
+      exec 'normal! '.(is_open_id+1).'G'
+    endif
     setlocal filetype=spear
     setlocal buftype=acwrite bufhidden=wipe
     setlocal number norelativenumber
