@@ -75,9 +75,9 @@ fun! spear#init()
     au BufEnter * call spear#tracker()
   augroup END
 
-  if g:spear_create_commands
+  if (g:spear_create_commands)
     command!          SpearAdd      call spear#add_file()
-    command!          SpearDelete   call spear#delete_file()
+    command!          SpearDelete   call spear#remove_file()
     command!          SpearToggle   call spear#toggle_menu()
     command! -nargs=1 SpearOpenFile call spear#open_file(<f-args>)
     command!          SpearNext     call spear#next_prev_file('next')
@@ -176,7 +176,7 @@ endfun
 
 " Opens a file from the spear list:
 " Either open file at position a:num,
-" or open the selected line in the spear list window
+" or open the current line in the spear list window
 fun! spear#open_file(num, prompt = 1)
   let saved_file = ''
   let spear_id = bufwinnr(s:spear_buf_name)
@@ -236,7 +236,7 @@ endfun
 " Removes a file from the spear list:
 " Either remove the current buffer's name, or the
 " currently selected line in the Spear List.
-fun! spear#delete_file()
+fun! spear#remove_file()
   if winnr() == bufwinnr(s:spear_buf_name)
     call spear#save()
   endif
@@ -300,8 +300,6 @@ endfun
 
 fun! spear#create_menu_maps()
   nnoremap <silent> <buffer> <cr> :call spear#open_file(0)<cr>
-  nnoremap <silent> <buffer> A    :call spear#add_file()<cr>
-  nnoremap <silent> <buffer> X    :call spear#delete_file()<cr>
   nnoremap <silent> <buffer> q    :call spear#close_menu()<cr>
   nnoremap <silent> <buffer> s    :call spear#save_map_helper()<cr>
 endfun

@@ -1,12 +1,12 @@
 " Spear - similar to a harpoon
 " Author:     Austin W. Smith
-" Version:    0.10.0
+" Version:    0.10.1
 
 " README: Most of the plugin code is in autoload/spear.vim
 
 " TODO: try to eliminate tracker by using smarter logic
 "       (use '#' buffer and check if window has changed?)
-" TODO: nvim floating window support
+" TODO: optional nvim floating window support
 " TODO: something to do with terminal support, idk the details yet
 " TODO: give menu a fancy display
 " TODO: cleanup empty lists from spear_data directory

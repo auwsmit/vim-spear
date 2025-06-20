@@ -36,7 +36,7 @@ Put mappings like these somewhere in your vim config file(s):
 ```vim
 " all neatly around home row
 nnoremap <silent> <Leader>A :call spear#add_file()<cr>
-nnoremap <silent> <Leader>X :call spear#delete_file()<cr>
+nnoremap <silent> <Leader>X :call spear#remove_file()<cr>
 nnoremap <silent> <c-m>     :call spear#toggle_menu()<cr>
 nnoremap <silent> <c-h>     :call spear#open_file(1)<cr>
 nnoremap <silent> <c-j>     :call spear#open_file(2)<cr>
@@ -52,7 +52,7 @@ nnoremap <silent> <c-,>     :call spear#next_prev_file('prev')<cr>
 local kmap = vim.keymap.set
 local opts = { noremap = true, silent = true }
 kmap('n', '<Leader>A', ":call spear#add_file()<CR>", opts)
-kmap('n', '<Leader>X', ":call spear#delete_file()<CR>", opts)
+kmap('n', '<Leader>X', ":call spear#remove_file()<CR>", opts)
 kmap('n', '<C-m>',     ":call spear#toggle_menu()<CR>", opts)
 kmap('n', '<C-h>',     ":call spear#open_file(1)<CR>", opts)
 kmap('n', '<C-j>',     ":call spear#open_file(2)<CR>", opts)
@@ -77,7 +77,7 @@ let g:spear_delete_invalid_files = 0
 let g:spear_quit_on_save = 0
 
 " always save when the list menu changes
-let g:spear_quit_on_change = 0
+let g:spear_save_on_change = 0
 
 " cycle with the previous/next maps
 let g:spear_prev_next_cycle = 0
@@ -98,7 +98,7 @@ commands to run, then you can enable this and make mappings this way as well:
 ```vim
 let g:spear_create_commands = 1
 nnoremap <silent> <Leader>A :SpearAdd<cr>
-nnoremap <silent> <Leader>X :SpearDelete<cr>
+nnoremap <silent> <Leader>X :SpearRemove<cr>
 nnoremap <silent> <C-m>    :SpearToggle<cr>
 nnoremap <silent> <C-h>    :SpearOpen 1<cr>
 nnoremap <silent> <C-j>    :SpearOpen 2<cr>
