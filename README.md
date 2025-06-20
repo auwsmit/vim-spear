@@ -83,7 +83,7 @@ let g:spear_save_on_change = 0
 let g:spear_prev_next_cycle = 0
 
 " convert backslashes to forward slashes
-" (purely aesthetic, shouldn't affect behavior)
+" (windows only)
 let g:spear_convert_backslashes = 1
 ```
 
@@ -97,13 +97,13 @@ commands to run, then you can enable this and make mappings this way as well:
 
 ```vim
 let g:spear_create_commands = 1
-nnoremap <silent> <Leader>A :SpearAdd<cr>
-nnoremap <silent> <Leader>X :SpearRemove<cr>
-nnoremap <silent> <C-m>    :SpearToggle<cr>
-nnoremap <silent> <C-h>    :SpearOpen 1<cr>
-nnoremap <silent> <C-j>    :SpearOpen 2<cr>
-nnoremap <silent> <C-k>    :SpearOpen 3<cr>
-nnoremap <silent> <C-l>    :SpearOpen 4<cr>
-nnoremap <silent> <C-.>    :SpearNext<cr>
-nnoremap <silent> <C-,>    :SpearPrev<cr>
+nnoremap <silent> <Leader>A :SpearAdd<CR>
+nnoremap <silent> <Leader>X :SpearRemove<CR>
+nnoremap <silent> <C-m>    :SpearToggle<CR>
+nnoremap <silent> <C-h>    :SpearOpen 1<CR>
+nnoremap <silent> <C-j>    :SpearOpen 2<CR>
+nnoremap <silent> <C-k>    :SpearOpen 3<CR>
+nnoremap <silent> <C-l>    :SpearOpen 4<CR>
+nnoremap <silent> <C-.>    :SpearNext<CR>
+nnoremap <silent> <C-,>    :SpearPrev<CR>
 ```
