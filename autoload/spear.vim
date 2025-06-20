@@ -45,6 +45,8 @@ endif
 
 " If disabled, backslashes are not converted
 " to forward slashes in the Spear List
+" |
+" (Windows only)
 if !exists('g:spear_convert_backslashes')
   let g:spear_convert_backslashes = 1
 endif
@@ -57,8 +59,67 @@ if !exists('g:spear_create_commands')
   let g:spear_create_commands = 0
 endif
 
-" FUNCTIONS:
-" ==========
+" SCRIPT FUNCTIONS:
+" =================
+
+" For windows, convert backslashes to forward slashes
+fun! s:win_path_fix(path)
+  if !has('win32') || !g:spear_convert_backslashes
+    return a:path
+  endif
+  return substitute(a:path, '\', '/', 'g')
+endfun
+
+" Retrieves file list based on current working directory.
+" use shortened cwd + sha256 so file names hopefully don't get too long
+fun! s:get_list_file()
+  " this doesn't use win_path_fix() because it needs to stay the same
+  let cwd = substitute(getcwd(), '\', '/', 'g')
+  let parts = split(cwd, '/')
+  let short_cwd = join(parts[-2:], '_')
+  let list = s:spear_data_dir . short_cwd . sha256(cwd) .'.txt'
+  if !filereadable(list)
+    call writefile([],list)
+  endif
+  return list
+endfun
+
+" Track the previous non-spear buffer/window.
+fun! s:tracker()
+  let spear_id = bufwinnr(s:spear_buf_name)
+  let bufname = expand('%')
+  if s:spear_is_open && spear_id != -1
+    if winnr() != spear_id
+      if bufname != s:spear_buf_name " in case of duplicate spear windows
+        let s:last_buf = bufname
+        let s:last_win = winnr()
+      endif
+      let s:spear_lines = readfile(s:get_list_file())
+      let spear_file_id = index(s:spear_lines, s:win_path_fix(bufname))
+      if spear_file_id != -1
+        " tracking for next_prev_file()
+        let s:last_file_id = spear_file_id
+      endif
+    endif
+  endif
+endfun
+
+" Buffer-local mappings for the Spear List
+fun! s:save_map_helper()
+  if g:spear_save_on_change | return | endif
+  call spear#save(1)
+  if g:spear_quit_on_save
+    call spear#close_menu()
+  endif
+endfun
+fun! s:create_menu_maps()
+  nnoremap <silent> <buffer> <cr> :call spear#open_file(0)<cr>
+  nnoremap <silent> <buffer> q    :call spear#close_menu()<cr>
+  nnoremap <silent> <buffer> s    :call <SID>save_map_helper()<cr>
+endfun
+
+" MAIN/AUTOLOAD FUNCTIONS:
+" ========================
 
 " Setup, create storage folder, cache list, start
 " window tracker, and setup commands if enabled by user
@@ -68,11 +129,11 @@ fun! spear#init()
   endif
 
   " Cache local spear list on startup
-  silent! let s:spear_lines = readfile(spear#get_list_file())
+  silent! let s:spear_lines = readfile(s:get_list_file())
 
   augroup spear_bufwin_tracker
     au!
-    au BufEnter * call spear#tracker()
+    au BufEnter * call <SID>tracker()
   augroup END
 
   if (g:spear_create_commands)
@@ -85,22 +146,9 @@ fun! spear#init()
   endif
 endfun
 
-" Retrieves file list based on current working directory.
-" use shortened cwd + sha256 so file names hopefully don't get too long
-fun! spear#get_list_file()
-  let cwd = substitute(getcwd(), '\', '/', 'g')
-  let parts = split(cwd, '/')
-  let short_cwd = join(parts[-2:], '_')
-  let list = s:spear_data_dir . short_cwd . sha256(cwd) .'.txt'
-  if !filereadable(list)
-    call writefile([],list)
-  endif
-  return list
-endfun
-
 " Save the spear list and cache a local copy of spear's list
 fun! spear#save(msg = 0)
-  let list = spear#get_list_file()
+  let list = s:get_list_file()
   call writefile(getline(1,'$'), list)
   let s:spear_lines = readfile(list)
   if a:msg && !g:spear_save_on_change
@@ -118,7 +166,7 @@ fun! spear#refresh()
   endif
   let cursor_pos = getpos('.')
   %delete _
-  exec 'silent! keepalt read '. spear#get_list_file()
+  exec 'silent! keepalt read '. s:get_list_file()
   1delete _
   call setpos('.', cursor_pos)
   if orig_win != spear_id
@@ -143,20 +191,10 @@ fun! spear#add_file()
     call spear#save()
   endif
 
-  " replace \ with / during duplication checking
-  let file_slash = substitute(file_to_add, '\', '/', 'g')
-  let lines_slash = []
-  for i_line in s:spear_lines
-    call add(lines_slash, substitute(i_line, '\', '/', 'g'))
-  endfor
-  if index(lines_slash, file_slash) != -1
+  let file_to_add = s:win_path_fix(file_to_add)
+  if index(s:spear_lines, file_to_add) != -1
     echohl WarningMsg | echo 'Error: File already added' | echohl None
     return
-  endif
-
-  " replace \ with / in spear list
-  if g:spear_convert_backslashes
-    let file_to_add = file_slash
   endif
 
   " check for empty lines
@@ -167,7 +205,7 @@ fun! spear#add_file()
     call add(s:spear_lines, file_to_add)
   endif
 
-  call writefile(s:spear_lines, spear#get_list_file())
+  call writefile(s:spear_lines, s:get_list_file())
   call spear#refresh()
   if bufwinnr(s:spear_buf_name) == -1
     echo 'Added "'. expand('%:t') .'" to Spear List'
@@ -189,12 +227,12 @@ fun! spear#open_file(num, prompt = 1)
   else
     " Spear is closed, and file a:num is being opened
     " update the spear list in case the cwd has changed
-    let s:spear_lines = readfile(spear#get_list_file())
+    let s:spear_lines = readfile(s:get_list_file())
   endif
   let invalid_file_id = 0
   " get filename
   if a:num == 0
-    let saved_file = getline('.')
+    let saved_file = s:win_path_fix(getline('.'))
   else
     if a:num > len(s:spear_lines) || a:num < 1
       echohl WarningMsg | echo 'Error: No file #'. a:num | echohl None
@@ -229,7 +267,7 @@ fun! spear#open_file(num, prompt = 1)
     let ask = confirm(msg, "&Yes\n&no", 1)
     if ask == 2 | return | end
     call remove(s:spear_lines, invalid_file_id-1)
-    call writefile(s:spear_lines, spear#get_list_file())
+    call writefile(s:spear_lines, s:get_list_file())
   endif
 endfun
 
@@ -240,7 +278,7 @@ fun! spear#remove_file()
   if winnr() == bufwinnr(s:spear_buf_name)
     call spear#save()
   endif
-  let list = spear#get_list_file()
+  let list = s:get_list_file()
   let bufname = expand('%')
   let matchstr = ''
   if bufname == s:spear_buf_name
@@ -251,7 +289,7 @@ fun! spear#remove_file()
     call spear#refresh()
   else
     " if spear is closed, remove current buffer's filename from list
-    let matchstr = g:spear_convert_backslashes ? s:SlashConvert(bufname) : bufname
+    let matchstr = s:win_path_fix(bufname)
     let len_before = len(s:spear_lines)
     call filter(s:spear_lines, 'v:val !=# matchstr')
     call writefile(s:spear_lines, list)
@@ -269,7 +307,8 @@ endfun
 " Open the next or previous file in the Spear List.
 fun! spear#next_prev_file(direction)
   let listlen = len(s:spear_lines)
-  let file_id = index(s:spear_lines, expand('%'))
+  let bufname = s:win_path_fix(expand('%'))
+  let file_id = index(s:spear_lines, bufname)
   " set variables based on moving to prev or next
   let offset      = (a:direction      == 'next' ? 1 : -1)
   let start_check = (s:last_file_id   == 0       && a:direction == 'prev')
@@ -298,28 +337,15 @@ fun! spear#next_prev_file(direction)
   endif
 endfun
 
-fun! spear#create_menu_maps()
-  nnoremap <silent> <buffer> <cr> :call spear#open_file(0)<cr>
-  nnoremap <silent> <buffer> q    :call spear#close_menu()<cr>
-  nnoremap <silent> <buffer> s    :call spear#save_map_helper()<cr>
-endfun
-
-fun! spear#save_map_helper()
-  if g:spear_save_on_change | return | endif
-  call spear#save(1)
-  if g:spear_quit_on_save
-    call spear#close_menu()
-  endif
-endfun
-
 fun! spear#open_menu()
   let s:last_buf = expand('%:p')
   let s:last_win = winnr()
   let spear_id = bufwinnr(s:spear_buf_name)
   if spear_id == -1
-    let is_open_id = index(s:spear_lines, substitute(expand('%'), '\', '/', 'g'))
+    " create the Spear List buffer and window
+    let is_open_id = index(s:spear_lines, expand('%'))
     exec 'botright '. s:spear_win_height .'split '. s:spear_buf_name
-    exec 'silent! keepalt read '. spear#get_list_file()
+    exec 'silent! keepalt read '. s:get_list_file()
     1delete _
     if is_open_id == -1
       normal! gg
@@ -329,7 +355,7 @@ fun! spear#open_menu()
     setlocal filetype=spear
     setlocal buftype=acwrite bufhidden=wipe
     setlocal number norelativenumber
-    call spear#create_menu_maps()
+    call s:create_menu_maps()
     " Hacky solution to prevent :wq quitting
     " the next window after BufWriteCmd fires.
     " might remove :w saving entirely in favor of only hotkey & auto saving
@@ -369,25 +395,6 @@ fun! spear#toggle_menu()
     call spear#open_menu()
   else
     call spear#close_menu()
-  endif
-endfun
-
-" Track the previous non-spear buffer/window.
-fun! spear#tracker()
-  let spear_id = bufwinnr(s:spear_buf_name)
-  let bufname = expand('%')
-  if s:spear_is_open && spear_id != -1
-    if winnr() != spear_id
-      if bufname != s:spear_buf_name " in case of duplicate spear windows
-        let s:last_buf = bufname
-        let s:last_win = winnr()
-      endif
-      let spear_file_id = index(s:spear_lines, bufname)
-      if spear_file_id != -1
-        " tracking for next_prev_file()
-        let s:last_file_id = spear_file_id
-      endif
-    endif
   endif
 endfun
 

@@ -1,8 +1,9 @@
 " Spear - similar to a harpoon
 " Author:     Austin W. Smith
-" Version:    0.10.1
+" Version:    0.11.0
 
 " README: Most of the plugin code is in autoload/spear.vim
+" (if you're in the repo directory, you can gf there)
 
 " TODO: try to eliminate tracker by using smarter logic
 "       (use '#' buffer and check if window has changed?)
