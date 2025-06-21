@@ -80,7 +80,7 @@ let g:spear_quit_on_save = 0
 let g:spear_save_on_change = 0
 
 " cycle with the previous/next maps
-let g:spear_prev_next_cycle = 0
+let g:spear_next_prev_cycle = 0
 
 " convert backslashes to forward slashes
 " (windows only)
