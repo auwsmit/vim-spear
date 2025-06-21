@@ -15,7 +15,7 @@ let s:last_buf = ''
 " If enabled, a prompt will be shown to delete blank lines or invalid files
 " when opened from the Spear List, or with :SpearOpen command/mappings
 " |
-" Does not affect :SpearNext and :SpearPrev
+" Does not affect :SpearNext and :SpearPrev, which skip invalid files
 if !exists('g:spear_delete_blank_lines')
   let g:spear_delete_blank_lines = 0
 endif
@@ -39,8 +39,8 @@ endif
 
 " If enabled, Spear will cycle when reaching the start or
 " end of the list when going to the next or previous file.
-if !exists('g:spear_prev_next_cycle')
-  let g:spear_prev_next_cycle = 0
+if !exists('g:spear_next_prev_cycle')
+  let g:spear_next_prev_cycle = 0
 endif
 
 " If disabled, backslashes are not converted
@@ -115,7 +115,9 @@ endfun
 fun! s:create_menu_maps()
   nnoremap <silent> <buffer> <cr> :call spear#open_file(0)<cr>
   nnoremap <silent> <buffer> q    :call spear#close_menu()<cr>
-  nnoremap <silent> <buffer> s    :call <SID>save_map_helper()<cr>
+  if !g:spear_save_on_change
+    nnoremap <silent> <buffer> s    :call <SID>save_map_helper()<cr>
+  endif
 endfun
 
 " MAIN/AUTOLOAD FUNCTIONS:
@@ -215,7 +217,9 @@ endfun
 " Opens a file from the spear list:
 " Either open file at position a:num,
 " or open the current line in the spear list window
-fun! spear#open_file(num, prompt = 1)
+" |
+" returns 1 if a file was opened, 0 if the none were
+fun! spear#open_file(num, newfile = 1, invalid_prompt = 1)
   let saved_file = ''
   let spear_id = bufwinnr(s:spear_buf_name)
   if winnr() == spear_id
@@ -223,7 +227,7 @@ fun! spear#open_file(num, prompt = 1)
     call spear#save()
   elseif a:num == 0
     echohl WarningMsg | echo 'Error: Spear is not open to select a file.' | echohl None
-    return
+    return 0
   else
     " Spear is closed, and file a:num is being opened
     " update the spear list in case the cwd has changed
@@ -248,27 +252,33 @@ fun! spear#open_file(num, prompt = 1)
 
   " open filename
   if filereadable(saved_file)
-    if a:prompt
+    if a:invalid_prompt
       " tracking for next_prev_file()
       let s:last_file_id = index(s:spear_lines, saved_file)
     endif
     exec 'silent! edit '. saved_file
     silent! normal! g`"
-  elseif a:prompt
+  elseif a:newfile
+    exec 'silent! edit '. saved_file
+    return 1
+  elseif a:invalid_prompt
     echohl WarningMsg | echo 'Error: File not found!' | echohl None
     let msg = ''
     if saved_file == ''
-      if !g:spear_delete_blank_lines | return | endif
+      if !g:spear_delete_blank_lines | return 0 | endif
       let msg = 'Would you like to delete this blank line?'
     else
-      if !g:spear_delete_invalid_files | return | endif
+      if !g:spear_delete_invalid_files | return 0 | endif
       let msg = 'Would you like to delete "'. saved_file .'"?'
     endif
     let ask = confirm(msg, "&Yes\n&no", 1)
-    if ask == 2 | return | end
+    if ask == 2 | return 0 | end
     call remove(s:spear_lines, invalid_file_id-1)
     call writefile(s:spear_lines, s:get_list_file())
+  else
+    return 0
   endif
+  return 1
 endfun
 
 " Removes a file from the spear list:
@@ -304,36 +314,45 @@ fun! spear#remove_file()
   endif
 endfun
 
-" Open the next or previous file in the Spear List.
 fun! spear#next_prev_file(direction)
   let listlen = len(s:spear_lines)
   let bufname = s:win_path_fix(expand('%'))
-  let file_id = index(s:spear_lines, bufname)
-  " set variables based on moving to prev or next
-  let offset      = (a:direction      == 'next' ? 1 : -1)
-  let start_check = (s:last_file_id   == 0       && a:direction == 'prev')
-  let end_check   = (s:last_file_id+1 == listlen && a:direction == 'next')
-  if (start_check || end_check)
-  " if at the beginning or end of list
-    if g:spear_prev_next_cycle
-      if start_check
-        let s:last_file_id = listlen-1
+  let start_id = s:last_file_id
+  let offset = (a:direction == 'next' ? 1 : -1)
+  let file_opened = 0
+  while (file_opened == 0)
+    let is_start = (s:last_file_id   == 0)
+    let is_end   = (s:last_file_id+1 == listlen)
+    if (is_start && a:direction == 'prev') || (is_end && a:direction == 'next')
+      if g:spear_next_prev_cycle
+        if is_start
+          let s:last_file_id = listlen-1
+        elseif is_end
+          let s:last_file_id = 0
+        endif
       else
-        let s:last_file_id = 0
+        let msg = a:direction == 'next' ? 'end' : 'start'
+        let file_opened = spear#open_file(s:last_file_id+1, 0, 0)
+        if file_opened
+          echo 'Reached '. msg .' of Spear List'
+          return
+        else
+          break
+        endif
       endif
-      let s:last_file_id = (a:direction == 'next' ? 0 : listlen-1)
-      call spear#open_file(s:last_file_id+1, 0)
-      let msg = a:direction == 'prev' ? 'end' : 'beginning'
-      echo 'Cycled to '. msg .' of Spear List'
     else
-      let msg = a:direction == 'next' ? 'end' : 'beginning'
-      echo 'At '. msg .' of Spear List'
+      let s:last_file_id += offset
     endif
-  else
-    " if within the list
-    let s:last_file_id += offset
-    call spear#open_file(s:last_file_id+1, 0)
+    if start_id == s:last_file_id
+      break
+    endif
+    let file_opened = spear#open_file(s:last_file_id+1, 0, 0)
+  endwhile
+  if file_opened
     echo 'Moved to file #'. (s:last_file_id+1) .' of Spear List'
+  else
+    echohl WarningMsg | echo 'Error: Cannot find file to open.' | echohl None
+    let s:last_file_id = start_id
   endif
 endfun
 
