@@ -78,9 +78,11 @@ fun! s:get_list_file()
   let parts = split(cwd, '/')
   let short_cwd = join(parts[-2:], '_')
   let list = s:spear_data_dir . short_cwd . sha256(cwd) .'.txt'
+
   if !filereadable(list)
     call writefile([],list)
   endif
+
   return list
 endfun
 
@@ -88,6 +90,7 @@ endfun
 fun! s:tracker()
   let spear_id = bufwinnr(s:spear_buf_name)
   let bufname = expand('%')
+
   if s:spear_is_open && spear_id != -1
     if winnr() != spear_id
       if bufname != s:spear_buf_name " in case of duplicate spear windows
@@ -102,6 +105,7 @@ fun! s:tracker()
       endif
     endif
   endif
+
 endfun
 
 " Buffer-local mappings for the Spear List
@@ -222,6 +226,8 @@ endfun
 fun! spear#open_file(num, newfile = 1, invalid_prompt = 1)
   let saved_file = ''
   let spear_id = bufwinnr(s:spear_buf_name)
+  let invalid_file_id = 0
+
   if winnr() == spear_id
     " save Spear list if it's the active window
     call spear#save()
@@ -233,7 +239,7 @@ fun! spear#open_file(num, newfile = 1, invalid_prompt = 1)
     " update the spear list in case the cwd has changed
     let s:spear_lines = readfile(s:get_list_file())
   endif
-  let invalid_file_id = 0
+
   " get filename
   if a:num == 0
     let saved_file = s:win_path_fix(getline('.'))
@@ -278,6 +284,7 @@ fun! spear#open_file(num, newfile = 1, invalid_prompt = 1)
   else
     return 0
   endif
+
   return 1
 endfun
 
@@ -288,9 +295,11 @@ fun! spear#remove_file()
   if winnr() == bufwinnr(s:spear_buf_name)
     call spear#save()
   endif
+
   let list = s:get_list_file()
   let bufname = expand('%')
   let matchstr = ''
+
   if bufname == s:spear_buf_name
     " if spear is open, remove current line (filename) from list
     let line_num = line('.') - 1
@@ -312,8 +321,11 @@ fun! spear#remove_file()
       endif
     endif
   endif
+
 endfun
 
+" Move to the next or previous file in the list.
+" Skips any invalid files.
 fun! spear#next_prev_file(direction)
   let listlen = len(s:spear_lines)
   let bufname = s:win_path_fix(expand('%'))
@@ -325,11 +337,7 @@ fun! spear#next_prev_file(direction)
     let is_end   = (s:last_file_id+1 == listlen)
     if (is_start && a:direction == 'prev') || (is_end && a:direction == 'next')
       if g:spear_next_prev_cycle
-        if is_start
-          let s:last_file_id = listlen-1
-        elseif is_end
-          let s:last_file_id = 0
-        endif
+        let s:last_file_id = is_start ? listlen-1 : 0
       else
         let msg = a:direction == 'next' ? 'end' : 'start'
         let file_opened = spear#open_file(s:last_file_id+1, 0, 0)
@@ -360,6 +368,7 @@ fun! spear#open_menu()
   let s:last_buf = expand('%:p')
   let s:last_win = winnr()
   let spear_id = bufwinnr(s:spear_buf_name)
+
   if spear_id == -1
     " create the Spear List buffer and window
     let is_open_id = index(s:spear_lines, expand('%'))
@@ -381,6 +390,7 @@ fun! spear#open_menu()
     if g:spear_quit_on_save
       cnoreabbrev <buffer> wq w
     endif
+
     augroup spear_menu_opened
       au!
       au TextChanged,TextChangedI <buffer>
@@ -388,7 +398,6 @@ fun! spear#open_menu()
             \ | if g:spear_save_on_change
             \ |   call spear#save()
             \ | endif
-
       au BufWriteCmd <buffer>
             \   call spear#save(1)
             \ | if g:spear_quit_on_save
@@ -397,6 +406,7 @@ fun! spear#open_menu()
     augroup END
     let s:spear_is_open = 1
   endif
+
 endfun
 
 fun! spear#close_menu()
