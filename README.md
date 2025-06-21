@@ -35,16 +35,16 @@ Put mappings like these somewhere in your vim config file(s):
 
 ```vim
 " all neatly around home row
-nnoremap <silent> <Leader>A :call spear#add_file()<cr>
-nnoremap <silent> <Leader>X :call spear#remove_file()<cr>
-nnoremap <silent> <c-m>     :call spear#toggle_menu()<cr>
-nnoremap <silent> <c-h>     :call spear#open_file(1)<cr>
-nnoremap <silent> <c-j>     :call spear#open_file(2)<cr>
-nnoremap <silent> <c-k>     :call spear#open_file(3)<cr>
-nnoremap <silent> <c-l>     :call spear#open_file(4)<cr>
+nnoremap <silent> <Leader>A :call spear#add_file()<CR>
+nnoremap <silent> <Leader>X :call spear#remove_file()<CR>
+nnoremap <silent> <C-m>     :call spear#toggle_menu()<CR>
+nnoremap <silent> <C-h>     :call spear#open_file(1)<CR>
+nnoremap <silent> <C-j>     :call spear#open_file(2)<CR>
+nnoremap <silent> <C-k>     :call spear#open_file(3)<CR>
+nnoremap <silent> <C-l>     :call spear#open_file(4)<CR>
 " < previous, and > next in the list
-nnoremap <silent> <c-.>     :call spear#next_prev_file('next')<cr>
-nnoremap <silent> <c-,>     :call spear#next_prev_file('prev')<cr>
+nnoremap <silent> <M-.>     :call spear#next_prev_file('next')<CR>
+nnoremap <silent> <M-,>     :call spear#next_prev_file('prev')<CR>
 ```
 
 ```lua
