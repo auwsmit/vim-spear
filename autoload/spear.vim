@@ -73,8 +73,7 @@ endfun
 " Retrieves file list based on current working directory.
 " use shortened cwd + sha256 so file names hopefully don't get too long
 fun! s:get_list_file()
-  " this doesn't use win_path_fix() because it needs to stay the same
-  let cwd = substitute(getcwd(), '\', '/', 'g')
+  let cwd = getcwd()
   let parts = split(cwd, '/')
   let short_cwd = join(parts[-2:], '_')
   let list = s:spear_data_dir . short_cwd . sha256(cwd) .'.txt'
@@ -321,13 +320,18 @@ fun! spear#remove_file()
       endif
     endif
   endif
-
 endfun
 
 " Move to the next or previous file in the list.
 " Skips any invalid files.
 fun! spear#next_prev_file(direction)
+  let s:spear_lines = readfile(s:get_list_file())
   let listlen = len(s:spear_lines)
+  if listlen == 0
+    echohl WarningMsg | echo 'Error: No list for this directory.' | echohl None
+    return
+  endif
+
   let bufname = s:win_path_fix(expand('%'))
   let start_id = s:last_file_id
   let offset = (a:direction == 'next' ? 1 : -1)
@@ -372,8 +376,8 @@ fun! spear#open_menu()
   if spear_id == -1
     " create the Spear List buffer and window
     let is_open_id = index(s:spear_lines, expand('%'))
-    exec 'botright '. s:spear_win_height .'split '. s:spear_buf_name
-    exec 'silent! keepalt read '. s:get_list_file()
+    exec 'keepalt botright '. s:spear_win_height .'split '. s:spear_buf_name
+    exec 'silent! read '. s:get_list_file()
     1delete _
     if is_open_id == -1
       normal! gg
@@ -406,15 +410,14 @@ fun! spear#open_menu()
     augroup END
     let s:spear_is_open = 1
   endif
-
 endfun
 
 fun! spear#close_menu()
   let spear_id = bufwinnr(s:spear_buf_name)
   if winbufnr(s:last_win) != -1
-    exec s:last_win . 'wincmd w'
+    exec s:last_win .'wincmd w'
   endif
-  exec spear_id . 'wincmd c'
+  exec spear_id .'wincmd c'
   let s:spear_is_open = 0
 endfun
 
