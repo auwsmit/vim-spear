@@ -1,6 +1,6 @@
 " Spear - similar to a harpoon
 " Author:     Austin W. Smith
-" Version:    0.12
+" Version:    0.12.1
 
 " README: Most of the plugin code is in autoload/spear.vim
 " (if you're in the repo directory, you can gf there)

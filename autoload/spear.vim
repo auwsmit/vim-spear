@@ -369,7 +369,6 @@ fun! spear#next_prev_file(direction)
 endfun
 
 fun! spear#open_menu()
-  let s:last_buf = expand('%:p')
   let s:last_win = winnr()
   let spear_id = bufwinnr(s:spear_buf_name)
 
