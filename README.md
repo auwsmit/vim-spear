@@ -34,17 +34,16 @@ Plug 'auwsmit/vim-spear'
 Put mappings like these somewhere in your vim config file(s):
 
 ```vim
-" all neatly around home row
 nnoremap <silent> <Leader>A :call spear#add_file()<CR>
 nnoremap <silent> <Leader>X :call spear#remove_file()<CR>
-nnoremap <silent> <C-m>     :call spear#toggle_menu()<CR>
+nnoremap <silent> <C-s>     :call spear#toggle_menu()<CR>
 nnoremap <silent> <C-h>     :call spear#open_file(1)<CR>
 nnoremap <silent> <C-j>     :call spear#open_file(2)<CR>
 nnoremap <silent> <C-k>     :call spear#open_file(3)<CR>
 nnoremap <silent> <C-l>     :call spear#open_file(4)<CR>
-" < previous, and > next in the list
-nnoremap <silent> <M-.>     :call spear#next_prev_file('next')<CR>
-nnoremap <silent> <M-,>     :call spear#next_prev_file('prev')<CR>
+" move to next or previous file in list
+nnoremap <silent> <C-S-n>     :call spear#next_prev_file('next')<CR>
+nnoremap <silent> <C-S-p>     :call spear#next_prev_file('prev')<CR>
 ```
 
 ```lua
@@ -53,13 +52,13 @@ local kmap = vim.keymap.set
 local opts = { noremap = true, silent = true }
 kmap('n', '<Leader>A', ":call spear#add_file()<CR>", opts)
 kmap('n', '<Leader>X', ":call spear#remove_file()<CR>", opts)
-kmap('n', '<C-m>',     ":call spear#toggle_menu()<CR>", opts)
+kmap('n', '<C-s>',     ":call spear#toggle_menu()<CR>", opts)
 kmap('n', '<C-h>',     ":call spear#open_file(1)<CR>", opts)
 kmap('n', '<C-j>',     ":call spear#open_file(2)<CR>", opts)
 kmap('n', '<C-k>',     ":call spear#open_file(3)<CR>", opts)
 kmap('n', '<C-l>',     ":call spear#open_file(4)<CR>", opts)
-kmap('n', '<C-.>',     ":call spear#next_prev_file('next')<CR>", opts)
-kmap('n', '<C-,>',     ":call spear#next_prev_file('prev')<CR>", opts)
+kmap('n', '<C-S-n>',     ":call spear#next_prev_file('next')<CR>", opts)
+kmap('n', '<C-S-p>',     ":call spear#next_prev_file('prev')<CR>", opts)
 ```
 
 ## Settings
@@ -99,11 +98,11 @@ commands to run, then you can enable this and make mappings this way as well:
 let g:spear_create_commands = 1
 nnoremap <silent> <Leader>A :SpearAdd<CR>
 nnoremap <silent> <Leader>X :SpearRemove<CR>
-nnoremap <silent> <C-m>    :SpearToggle<CR>
+nnoremap <silent> <C-s>    :SpearToggle<CR>
 nnoremap <silent> <C-h>    :SpearOpen 1<CR>
 nnoremap <silent> <C-j>    :SpearOpen 2<CR>
 nnoremap <silent> <C-k>    :SpearOpen 3<CR>
 nnoremap <silent> <C-l>    :SpearOpen 4<CR>
-nnoremap <silent> <C-.>    :SpearNext<CR>
-nnoremap <silent> <C-,>    :SpearPrev<CR>
+nnoremap <silent> <C-S-n>    :SpearNext<CR>
+nnoremap <silent> <C-S-p>    :SpearPrev<CR>
 ```
