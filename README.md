@@ -12,6 +12,19 @@ It functions almost identically to Harpoon 2. Still a work in progress.
 This has been fun to make, it's a project learn from, and it works in both
 old Vim and Neovim, while Harpoon is exclusive to Neovim.
 
+### Why not use uppercase/file marks with tabs and/or sessions?
+
+If those work fine for you, then you don't need this plugin, and that's ok! Vim has some awesome built-in features which require no plugin installation or configuration.
+
+Then why use Harpoon or Spear over marks and tabs/sessions?
+
+- Streamlines the process of marks/tabs/sessions.
+- Easier to look up and manage the list of files. You can edit and save the list like a normal buffer.
+- Just cd to a project to have access to its pinned files, no dealing with session options or files or tabs.
+- Has more navigation options, hotkeys are mapped to the order of the list, and you can cycle through the list.
+- Can handle more than 26 files across all projects (assuming you need to work on that many projects/files on one system).
+- You can still use file marks along side the plugin.
+
 ## Installation
 
 If you wanna try it out, then install via your preferred plugin
@@ -42,8 +55,8 @@ nnoremap <silent> <C-j>     :call spear#open_file(2)<CR>
 nnoremap <silent> <C-k>     :call spear#open_file(3)<CR>
 nnoremap <silent> <C-l>     :call spear#open_file(4)<CR>
 " move to next or previous file in list
-nnoremap <silent> <C-S-N>     :call spear#next_prev_file('next')<CR>
-nnoremap <silent> <C-S-P>     :call spear#next_prev_file('prev')<CR>
+nnoremap <silent> <C-S-N>   :call spear#next_prev_file('next')<CR>
+nnoremap <silent> <C-S-P>   :call spear#next_prev_file('prev')<CR>
 ```
 
 ```lua
@@ -57,8 +70,8 @@ kmap('n', '<C-h>',     ":call spear#open_file(1)<CR>", opts)
 kmap('n', '<C-j>',     ":call spear#open_file(2)<CR>", opts)
 kmap('n', '<C-k>',     ":call spear#open_file(3)<CR>", opts)
 kmap('n', '<C-l>',     ":call spear#open_file(4)<CR>", opts)
-kmap('n', '<C-S-N>',     ":call spear#next_prev_file('next')<CR>", opts)
-kmap('n', '<C-S-P>',     ":call spear#next_prev_file('prev')<CR>", opts)
+kmap('n', '<C-S-N>',   ":call spear#next_prev_file('next')<CR>", opts)
+kmap('n', '<C-S-P>',   ":call spear#next_prev_file('prev')<CR>", opts)
 ```
 
 ## Settings
@@ -98,11 +111,11 @@ commands to run, then you can enable this and make mappings this way as well:
 let g:spear_create_commands = 1
 nnoremap <silent> <Leader>A :SpearAdd<CR>
 nnoremap <silent> <Leader>X :SpearRemove<CR>
-nnoremap <silent> <C-s>    :SpearToggle<CR>
-nnoremap <silent> <C-h>    :SpearOpen 1<CR>
-nnoremap <silent> <C-j>    :SpearOpen 2<CR>
-nnoremap <silent> <C-k>    :SpearOpen 3<CR>
-nnoremap <silent> <C-l>    :SpearOpen 4<CR>
-nnoremap <silent> <C-S-N>    :SpearNext<CR>
-nnoremap <silent> <C-S-P>    :SpearPrev<CR>
+nnoremap <silent> <C-s>     :SpearToggle<CR>
+nnoremap <silent> <C-h>     :SpearOpen 1<CR>
+nnoremap <silent> <C-j>     :SpearOpen 2<CR>
+nnoremap <silent> <C-k>     :SpearOpen 3<CR>
+nnoremap <silent> <C-l>     :SpearOpen 4<CR>
+nnoremap <silent> <C-S-N>   :SpearNext<CR>
+nnoremap <silent> <C-S-P>   :SpearPrev<CR>
 ```
