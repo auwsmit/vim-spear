@@ -82,8 +82,7 @@ you can always access them when you return to the project. Edit and rearrange
 the menu list and save it like a normal buffer. Quickly quit or save with `q`
 and `s`, and open files with `<CR>`.
 
-The mappings to add and remove files also work on the current line when the
-menu is open.
+The mappings to add and remove the current fil also work on the menu while its open.
 
 Beware that opening a file from the menu will also save any unsaved changes.
 
