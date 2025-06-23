@@ -2,10 +2,8 @@
 
 ### Pin and quickly access important files per-project.
 
-Basically recreating Primeagen's Harpoon 2 nvim plugin from scratch, but in
-vimscript.
-
-It functions almost identically to Harpoon 2. Still a work in progress.
+Basically recreating Primeagen's Harpoon nvim plugin from scratch, but in
+vimscript. Functions almost identically to Harpoon 2. Still a work in progress.
 
 ### Why? Harpoon already exists...
 
@@ -14,7 +12,7 @@ old Vim and Neovim, while Harpoon is exclusive to Neovim.
 
 ### Why not use uppercase/file marks with tabs and/or sessions?
 
-If those work fine for you, then you don't need this plugin, and that's ok! Vim has some awesome built-in features which require no plugin installation or configuration.
+If those work fine for you, then you don't need this plugin, and that's ok! Vim has many awesome built-in features which require no plugin installation or configuration.
 
 Then why use Harpoon or Spear over marks and tabs/sessions?
 
@@ -23,7 +21,7 @@ Then why use Harpoon or Spear over marks and tabs/sessions?
 - Just cd to a project to have access to its pinned files, no dealing with session options or files or tabs.
 - Has more navigation options, hotkeys are mapped to the order of the list, and you can cycle through the list.
 - Can handle more than 26 files across all projects (assuming you need to work on that many projects/files on one system).
-- You can still use file marks along side the plugin.
+- You can still use file marks, tabs, and sessions along side this plugin.
 
 ## Installation
 
@@ -81,11 +79,14 @@ Purely optional settings to adjust based on your preferences:
 (these are the default values)
 
 ```vim
-" prompt to delete invalid files
+" prompt to delete invalid files from the list.
+" by default it will ignore blank lines,
+" and create new files if they don't exist
 let g:spear_delete_blank_lines = 0
 let g:spear_delete_invalid_files = 0
 
 " close the menu whenever it's manually saved
+" (enable this to be more Harpoon-like)
 let g:spear_quit_on_save = 0
 
 " always save when the list menu changes
@@ -105,7 +106,7 @@ vim.g.spear_delete_blank_lines = 0
 ```
 
 This is a bit pointless for a mapping-focused plugin, but if you want pretty
-commands to run, then you can enable this and make mappings this way as well:
+commands to run, then you can enable this and make mappings this way instead:
 
 ```vim
 let g:spear_create_commands = 1
