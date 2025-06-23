@@ -73,10 +73,10 @@ endfun
 " Retrieves file list based on current working directory.
 " use shortened cwd + sha256 so file names hopefully don't get too long
 fun! s:get_list_file()
-  let cwd = getcwd()
-  let parts = split(cwd, has('win32') ? '\' : '/' )
+  let cwd = substitute(getcwd(), '\', '/', 'g')
+  let parts = split(cwd, '/')
   let short_cwd = join(parts[-2:], '_')
-  let list = s:spear_data_dir . short_cwd . sha256(cwd) .'.txt'
+  let list = s:spear_data_dir . short_cwd .'_'. sha256(cwd) .'.txt'
 
   if !filereadable(list)
     call writefile([],list)
