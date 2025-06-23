@@ -42,8 +42,8 @@ nnoremap <silent> <C-j>     :call spear#open_file(2)<CR>
 nnoremap <silent> <C-k>     :call spear#open_file(3)<CR>
 nnoremap <silent> <C-l>     :call spear#open_file(4)<CR>
 " move to next or previous file in list
-nnoremap <silent> <C-S-n>     :call spear#next_prev_file('next')<CR>
-nnoremap <silent> <C-S-p>     :call spear#next_prev_file('prev')<CR>
+nnoremap <silent> <C-S-N>     :call spear#next_prev_file('next')<CR>
+nnoremap <silent> <C-S-P>     :call spear#next_prev_file('prev')<CR>
 ```
 
 ```lua
@@ -57,8 +57,8 @@ kmap('n', '<C-h>',     ":call spear#open_file(1)<CR>", opts)
 kmap('n', '<C-j>',     ":call spear#open_file(2)<CR>", opts)
 kmap('n', '<C-k>',     ":call spear#open_file(3)<CR>", opts)
 kmap('n', '<C-l>',     ":call spear#open_file(4)<CR>", opts)
-kmap('n', '<C-S-n>',     ":call spear#next_prev_file('next')<CR>", opts)
-kmap('n', '<C-S-p>',     ":call spear#next_prev_file('prev')<CR>", opts)
+kmap('n', '<C-S-N>',     ":call spear#next_prev_file('next')<CR>", opts)
+kmap('n', '<C-S-P>',     ":call spear#next_prev_file('prev')<CR>", opts)
 ```
 
 ## Settings
@@ -103,6 +103,6 @@ nnoremap <silent> <C-h>    :SpearOpen 1<CR>
 nnoremap <silent> <C-j>    :SpearOpen 2<CR>
 nnoremap <silent> <C-k>    :SpearOpen 3<CR>
 nnoremap <silent> <C-l>    :SpearOpen 4<CR>
-nnoremap <silent> <C-S-n>    :SpearNext<CR>
-nnoremap <silent> <C-S-p>    :SpearPrev<CR>
+nnoremap <silent> <C-S-N>    :SpearNext<CR>
+nnoremap <silent> <C-S-P>    :SpearPrev<CR>
 ```
