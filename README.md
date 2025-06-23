@@ -1,16 +1,19 @@
-# Spear
+# ---Spear-->
 
-### Pin and quickly access important files per-project.
+### ⟶Pin and quickly access important files per-project.
 
-Basically recreating Primeagen's Harpoon nvim plugin from scratch, but in
-vimscript. Functions almost identically to Harpoon 2. Still a work in progress.
+I have basically recreated Primeagen's Harpoon nvim plugin from scratch, but in
+vimscript. Functions almost identically to Harpoon 2's core functionality.
 
-### Why? Harpoon already exists...
+Still a work in progress, but is fully usable! No fancy extra features or
+tmux/terminal integration yet.
+
+### ⟶Why? Harpoon already exists...
 
 This has been fun to make, it's a project learn from, and it works in both
 old Vim and Neovim, while Harpoon is exclusive to Neovim.
 
-### Why not use uppercase/file marks with tabs and/or sessions?
+### ⟶Why not use uppercase/file marks with tabs and/or sessions?
 
 If those work fine for you, then you don't need this plugin, and that's ok! Vim has many awesome built-in features which require no plugin installation or configuration.
 
@@ -23,7 +26,7 @@ Then why use Harpoon or Spear over marks and tabs/sessions?
 - Can handle more than 26 files across all projects (assuming you need to work on that many projects/files on one system).
 - You can still use file marks, tabs, and sessions along side this plugin.
 
-## Installation
+## ⟶Installation
 
 If you wanna try it out, then install via your preferred plugin
 manager:
@@ -40,7 +43,7 @@ Plug 'auwsmit/vim-spear'
 }
 ```
 
-## Setup
+## ⟶Setup
 
 Put mappings like these somewhere in your vim config file(s):
 
@@ -72,7 +75,19 @@ kmap('n', '<C-S-N>',   ":call spear#next_prev_file('next')<CR>", opts)
 kmap('n', '<C-S-P>',   ":call spear#next_prev_file('prev')<CR>", opts)
 ```
 
-## Settings
+## ⟶How to use
+
+Go to a project directory, add files, and then access them with mappings. Now
+you can always access them when you return to the project. Edit and rearrange
+the menu list and save it like a normal buffer. Quickly quit or save with `q`
+and `s`, and open files with `<CR>`.
+
+The mappings to add and remove files also work on the current line when the
+menu is open.
+
+Beware that opening a file from the menu will also save any unsaved changes.
+
+## ⟶Settings
 
 Purely optional settings to adjust based on your preferences:
 
@@ -81,7 +96,7 @@ Purely optional settings to adjust based on your preferences:
 ```vim
 " prompt to delete invalid files from the list.
 " by default it will ignore blank lines,
-" and create new files if they don't exist
+" and edit a new file if it doesn't exist
 let g:spear_delete_blank_lines = 0
 let g:spear_delete_invalid_files = 0
 
@@ -89,11 +104,16 @@ let g:spear_delete_invalid_files = 0
 " (enable this to be more Harpoon-like)
 let g:spear_quit_on_save = 0
 
-" always save when the list menu changes
+" always save when the list menu text changes,
+" convenient but dangerous
 let g:spear_save_on_change = 0
 
 " cycle with the previous/next maps
 let g:spear_next_prev_cycle = 0
+
+" use floating window intead of split window
+" (neovim only)
+let g:spear_use_floating_window = 1
 
 " convert backslashes to forward slashes
 " (windows only)

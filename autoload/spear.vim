@@ -1,10 +1,25 @@
+" Spear - similar to a harpoon
+" Author:     Austin W. Smith
+" Version:    1.0
+
+" TODO: something to do with terminal and tmux support, idk the details yet
+" TODO: cleanup empty lists from spear_data directory
+" TODO: maybe show a list of all saved lists, a list list if you will
+" TODO: give menu a fancier display
+" TODO: make a readme gif
+" TODO: help docs
+" TODO: ? to show maps
+
 " PLUGIN GLOBALS:
 " ===============
 let s:spear_is_open = 0
 let s:spear_win_height = 8
+" put spear data files wherever vimrc is located.
 let s:spear_data_dir = fnamemodify(expand($MYVIMRC), ':h') .'/spear_data/'
-let s:spear_buf_name = '-Spear List-'
+let s:spear_temp_name = 'Spear'. rand()
+let s:spear_buf_name = '---Spear-->'
 let s:spear_lines = []
+let s:float_win_id = -1
 let s:last_file_id = 0
 let s:last_win = -1
 let s:last_buf = ''
@@ -13,7 +28,7 @@ let s:last_buf = ''
 " ============================
 
 " If enabled, a prompt will be shown to delete blank lines or invalid files
-" when opened from the Spear List, or with :SpearOpen command/mappings
+" when opened from the Spear menu, or with :SpearOpen command/mappings
 " |
 " Does not affect :SpearNext and :SpearPrev, which skip invalid files
 if !exists('g:spear_delete_blank_lines')
@@ -37,18 +52,25 @@ if !exists('g:spear_save_on_change')
   let g:spear_save_on_change = 0
 endif
 
-" If enabled, Spear will cycle when reaching the start or
+" If disabled, Spear will stop when reaching the start or
 " end of the list when going to the next or previous file.
 if !exists('g:spear_next_prev_cycle')
-  let g:spear_next_prev_cycle = 0
+  let g:spear_next_prev_cycle = 1
 endif
 
 " If disabled, backslashes are not converted
-" to forward slashes in the Spear List
+" to forward slashes in the Spear menu
 " |
 " (Windows only)
 if !exists('g:spear_convert_backslashes')
   let g:spear_convert_backslashes = 1
+endif
+
+" If disabled, Spear will use a split window instead of a floating window
+" |
+" (Neovim only)
+if has('nvim') && !exists('g:spear_use_floating_window')
+  let g:spear_use_floating_window = 1
 endif
 
 " If enabled, then commands are created at vim startup.
@@ -85,29 +107,62 @@ fun! s:get_list_file()
   return list
 endfun
 
-" Track the previous non-spear buffer/window.
-fun! s:tracker()
-  let spear_id = bufwinnr(s:spear_buf_name)
-  let bufname = expand('%')
+" Create a Neovim floating window.
+if has('nvim')
+  fun! s:create_floating_win()
+    let buf_nr = bufexists(s:spear_buf_name) ?
+          \ bufnr(s:spear_buf_name) : nvim_create_buf(v:false, v:false)
+    call nvim_buf_set_name(buf_nr, s:spear_temp_name)
+    call nvim_set_option_value('swapfile', v:false,
+          \                    {'scope' : 'local', 'buf' : buf_nr })
+    call nvim_buf_set_name(buf_nr, s:spear_buf_name)
+    let opts = {
+          \ 'relative': 'editor',
+          \ 'width': 120,
+          \ 'height': s:spear_win_height,
+          \ 'col': (&columns - 80) / 2,
+          \ 'row': (&lines - s:spear_win_height) / 2,
+          \ 'style': 'minimal',
+          \ 'border': 'single',
+          \ 'title': s:spear_buf_name
+          \ }
+    let s:float_win_id = nvim_open_win(buf_nr, v:true, opts)
+  endfun
+endif
 
-  if s:spear_is_open && spear_id != -1
-    if winnr() != spear_id
-      if bufname != s:spear_buf_name " in case of duplicate spear windows
-        let s:last_buf = bufname
-        let s:last_win = winnr()
-      endif
-      let s:spear_lines = readfile(s:get_list_file())
-      let spear_file_id = index(s:spear_lines, s:win_path_fix(bufname))
-      if spear_file_id != -1
-        " tracking for next_prev_file()
-        let s:last_file_id = spear_file_id
-      endif
-    endif
+" Get Spear menu number
+" like bufwinnr() but works with floating window
+fun! s:get_spear_winnr()
+  let winid = 0
+  if has('nvim') && g:spear_use_floating_window
+    let winid = win_id2win(s:float_win_id)
+    if winid == 0 | let winid = -1 | endif
+  else
+    let winid = bufwinnr(s:spear_buf_name)
   endif
-
+  return winid
 endfun
 
-" Buffer-local mappings for the Spear List
+" Track the previous non-spear buffer/window.
+fun! s:tracker()
+  let spear_id = s:get_spear_winnr()
+  let bufname = expand('%')
+
+  if winnr() != spear_id
+    if (bufname != s:spear_buf_name)
+      let s:last_buf = bufname
+      let s:last_win = winnr()
+    endif
+    let s:spear_lines = readfile(s:get_list_file())
+    let spear_file_id = index(s:spear_lines, s:win_path_fix(bufname))
+    if spear_file_id != -1
+      " tracking for next_prev_file()
+      let s:last_file_id = spear_file_id
+    endif
+  endif
+endfun
+
+" Buffer-local mappings for the Spear menu
 fun! s:save_map_helper()
   if g:spear_save_on_change | return | endif
   call spear#save(1)
@@ -133,7 +188,7 @@ fun! spear#init()
     call mkdir(s:spear_data_dir)
   endif
 
-  " Cache local spear list on startup
+  " Cache local Spear list on startup
   silent! let s:spear_lines = readfile(s:get_list_file())
 
   augroup spear_bufwin_tracker
@@ -151,7 +206,7 @@ fun! spear#init()
   endif
 endfun
 
-" Save the spear list and cache a local copy of spear's list
+" Save the Spear list and cache a local copy.
 fun! spear#save(msg = 0)
   let list = s:get_list_file()
   call writefile(getline(1,'$'), list)
@@ -161,9 +216,9 @@ fun! spear#save(msg = 0)
   endif
 endfun
 
-" Update the spear list window with current info.
+" Update the Spear menu with current info.
 fun! spear#refresh()
-  let spear_id = bufwinnr(s:spear_buf_name)
+  let spear_id = s:get_spear_winnr()
   if spear_id == -1 | return | endif
   let orig_win = winnr()
   if orig_win != spear_id
@@ -180,20 +235,23 @@ fun! spear#refresh()
 endfun
 
 " Add the current buffer (or whichever buffer was open when Spear was opened)
-" to the Spear List.
+" to the Spear menu.
 fun! spear#add_file()
+  " " save before add is disabled for now,
+  " " no need to force unsaved changes
+  " if winnr() == s:get_spear_winnr()
+  "   call spear#save()
+  " endif
+
   let file_to_add = expand('%:p')
   if expand('%') == s:spear_buf_name
     if bufexists(s:last_buf)
       let file_to_add = s:last_buf
     else
+      echo 'last buf: '.s:last_buf
       echohl WarningMsg | echo 'Error: Cannot find file to add' | echohl None
       return
     endif
-  endif
-
-  if winnr() == bufwinnr(s:spear_buf_name)
-    call spear#save()
   endif
 
   let file_to_add = s:win_path_fix(file_to_add)
@@ -212,30 +270,67 @@ fun! spear#add_file()
 
   call writefile(s:spear_lines, s:get_list_file())
   call spear#refresh()
-  if bufwinnr(s:spear_buf_name) == -1
+  if s:get_spear_winnr() == -1
     echo 'Added "'. expand('%:t') .'" to Spear List'
   endif
 endfun
 
-" Opens a file from the spear list:
+" Removes a file from the Spear list:
+" Either remove the current buffer's name, or the
+" currently selected line in the Spear menu.
+fun! spear#remove_file()
+  " " save before remove is disabled for now,
+  " " no need to force unsaved changes
+  " if winnr() == s:get_spear_winnr()
+  "   call spear#save()
+  " endif
+
+  let list = s:get_list_file()
+  let bufname = expand('%')
+  let matchstr = ''
+
+  if bufname == s:spear_buf_name
+    " if spear is open, remove current line (filename) from list
+    let line_num = line('.') - 1
+    let line = remove(s:spear_lines, line_num)
+    call writefile(s:spear_lines,list)
+    call spear#refresh()
+  else
+    " if spear is closed, remove current buffer's filename from list
+    let matchstr = s:win_path_fix(bufname)
+    let len_before = len(s:spear_lines)
+    call filter(s:spear_lines, 'v:val !=# matchstr')
+    call writefile(s:spear_lines, list)
+    call spear#refresh()
+    if s:get_spear_winnr() == -1
+      if len_before >= len(s:spear_lines)
+        echo 'Removed "'. fnamemodify(bufname, ':t') .'" from Spear List'
+      else
+        echohl WarningMsg | echo 'Error: File not found in list' | echohl None
+      endif
+    endif
+  endif
+endfun
+
+" Opens a file from the Spear menu:
 " Either open file at position a:num,
-" or open the current line in the spear list window
+" or open the current line in the Spear menu
 " |
-" returns 1 if a file was opened, 0 if the none were
+" returns 1 if a file was opened, otherwise 0
 fun! spear#open_file(num, newfile = 1, invalid_prompt = 1)
   let saved_file = ''
-  let spear_id = bufwinnr(s:spear_buf_name)
+  let spear_id = s:get_spear_winnr()
   let invalid_file_id = 0
 
   if winnr() == spear_id
-    " save Spear list if it's the active window
+    " save Spear menu if it's the active window
     call spear#save()
   elseif a:num == 0
     echohl WarningMsg | echo 'Error: Spear is not open to select a file.' | echohl None
     return 0
   else
     " Spear is closed, and file a:num is being opened
-    " update the spear list in case the cwd has changed
+    " update the Spear list in case the cwd has changed
     let s:spear_lines = readfile(s:get_list_file())
   endif
 
@@ -287,41 +382,6 @@ fun! spear#open_file(num, newfile = 1, invalid_prompt = 1)
   return 1
 endfun
 
-" Removes a file from the spear list:
-" Either remove the current buffer's name, or the
-" currently selected line in the Spear List.
-fun! spear#remove_file()
-  if winnr() == bufwinnr(s:spear_buf_name)
-    call spear#save()
-  endif
-
-  let list = s:get_list_file()
-  let bufname = expand('%')
-  let matchstr = ''
-
-  if bufname == s:spear_buf_name
-    " if spear is open, remove current line (filename) from list
-    let line_num = line('.') - 1
-    let line = remove(s:spear_lines, line_num)
-    call writefile(s:spear_lines,list)
-    call spear#refresh()
-  else
-    " if spear is closed, remove current buffer's filename from list
-    let matchstr = s:win_path_fix(bufname)
-    let len_before = len(s:spear_lines)
-    call filter(s:spear_lines, 'v:val !=# matchstr')
-    call writefile(s:spear_lines, list)
-    call spear#refresh()
-    if bufwinnr(s:spear_buf_name) == -1
-      if len_before >= len(s:spear_lines)
-        echo 'Removed "'. fnamemodify(bufname, ':t') .'" from Spear List'
-      else
-        echohl WarningMsg | echo 'Error: File not found in list' | echohl None
-      endif
-    endif
-  endif
-endfun
-
 " Move to the next or previous file in the list.
 " Skips any invalid files.
 fun! spear#next_prev_file(direction)
@@ -336,6 +396,12 @@ fun! spear#next_prev_file(direction)
   let start_id = s:last_file_id
   let offset = (a:direction == 'next' ? 1 : -1)
   let file_opened = 0
+  let looped = 0
+  let valid_list_id = index(s:spear_lines, bufname)
+  if valid_list_id != -1
+    let s:last_file_id = valid_list_id
+  endif
+
   while (file_opened == 0)
     let is_start = (s:last_file_id   == 0)
     let is_end   = (s:last_file_id+1 == listlen)
@@ -355,11 +421,13 @@ fun! spear#next_prev_file(direction)
     else
       let s:last_file_id += offset
     endif
-    if start_id == s:last_file_id
+    if (start_id == s:last_file_id) && looped
       break
     endif
     let file_opened = spear#open_file(s:last_file_id+1, 0, 0)
+    let looped = 1
   endwhile
+
   if file_opened
     echo 'Moved to file #'. (s:last_file_id+1) .' of Spear List'
   else
@@ -370,22 +438,30 @@ endfun
 
 fun! spear#open_menu()
   let s:last_win = winnr()
-  let spear_id = bufwinnr(s:spear_buf_name)
+  let spear_id = s:get_spear_winnr()
 
   if spear_id == -1
-    " create the Spear List buffer and window
-    let is_open_id = index(s:spear_lines, expand('%'))
-    exec 'keepalt botright '. s:spear_win_height .'split '. s:spear_buf_name
+    let bufname = s:win_path_fix(expand('%'))
+    let list_file_id = index(s:spear_lines, bufname)
+    if has('nvim') && g:spear_use_floating_window
+      call s:create_floating_win()
+    else
+      exec 'keepalt botright '.
+            \ s:spear_win_height .'split Spear'. s:spear_temp_name
+      setlocal noswapfile
+      exec 'keepalt file '. s:spear_buf_name
+    endif
     exec 'silent! read '. s:get_list_file()
     1delete _
-    if is_open_id == -1
+    if list_file_id == -1
       normal! gg
     else
-      exec 'normal! '.(is_open_id+1).'G'
+      exec 'normal! '.(list_file_id+1).'G'
     endif
     setlocal filetype=spear
     setlocal buftype=acwrite bufhidden=wipe
     setlocal number norelativenumber
+
     call s:create_menu_maps()
     " Hacky solution to prevent :wq quitting
     " the next window after BufWriteCmd fires.
@@ -412,17 +488,19 @@ fun! spear#open_menu()
 endfun
 
 fun! spear#close_menu()
-  let spear_id = bufwinnr(s:spear_buf_name)
+  let spear_id = s:get_spear_winnr()
+  " ensure return to the previous window
   if winbufnr(s:last_win) != -1
     exec s:last_win .'wincmd w'
   endif
   exec spear_id .'wincmd c'
+
   let s:spear_is_open = 0
 endfun
 
 fun! spear#toggle_menu()
-  let spear_id = bufwinnr(s:spear_buf_name)
-  if spear_id == -1
+  let is_open = s:get_spear_winnr()
+  if is_open == -1
     call spear#open_menu()
   else
     call spear#close_menu()
