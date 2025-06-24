@@ -1,9 +1,8 @@
 " Spear - similar to a harpoon
 " Author:     Austin W. Smith
-" Version:    1.0
+" Version:    1.0.1
 
 " TODO: something to do with terminal and tmux support, idk the details yet
-" TODO: cleanup empty lists from spear_data directory
 " TODO: maybe show a list of all saved lists, a list list if you will
 " TODO: give menu a fancier display
 " TODO: make a readme gif
@@ -46,16 +45,17 @@ endif
 " If enabled, Spear will auto-save all changes,
 " making manual saving unnecessary.
 " |
-" By default, Spear only saves when you add/remove/open a file,
-" use the save hotkey, or manually save with a command like :w.
+" By default, Spear only saves when you use the save hotkey,
+" save with a command like :write, add or remove a file
+" with a hotkey, or open a file from within the Spear menu.
 if !exists('g:spear_save_on_change')
   let g:spear_save_on_change = 0
 endif
 
-" If disabled, Spear will stop when reaching the start or
+" If enabled, Spear will cycle when reaching the start or
 " end of the list when going to the next or previous file.
 if !exists('g:spear_next_prev_cycle')
-  let g:spear_next_prev_cycle = 1
+  let g:spear_next_prev_cycle = 0
 endif
 
 " If disabled, backslashes are not converted
@@ -99,11 +99,6 @@ fun! s:get_list_file()
   let parts = split(cwd, '/')
   let short_cwd = join(parts[-2:], '_')
   let list = s:spear_data_dir . short_cwd .'_'. sha256(cwd) .'.txt'
-
-  if !filereadable(list)
-    call writefile([],list)
-  endif
-
   return list
 endfun
 
@@ -234,7 +229,7 @@ fun! spear#refresh()
   endif
 endfun
 
-" Add the current buffer (or whichever buffer was open when Spear was opened)
+" Add the current file (or whichever file was open when Spear was opened)
 " to the Spear menu.
 fun! spear#add_file()
   " " save before add is disabled for now,
@@ -243,17 +238,16 @@ fun! spear#add_file()
   "   call spear#save()
   " endif
 
+  " check if file to add is valid
   let file_to_add = expand('%:p')
   if expand('%') == s:spear_buf_name
     if bufexists(s:last_buf)
       let file_to_add = s:last_buf
     else
-      echo 'last buf: '.s:last_buf
       echohl WarningMsg | echo 'Error: Cannot find file to add' | echohl None
       return
     endif
   endif
-
   let file_to_add = s:win_path_fix(file_to_add)
   if index(s:spear_lines, file_to_add) != -1
     echohl WarningMsg | echo 'Error: File already added' | echohl None
@@ -409,7 +403,7 @@ fun! spear#next_prev_file(direction)
       if g:spear_next_prev_cycle
         let s:last_file_id = is_start ? listlen-1 : 0
       else
-        let msg = a:direction == 'next' ? 'end' : 'start'
+        let msg = (a:direction == 'next') ? 'end' : 'start'
         let file_opened = spear#open_file(s:last_file_id+1, 0, 0)
         if file_opened
           echo 'Reached '. msg .' of Spear List'
