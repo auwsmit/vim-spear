@@ -39,7 +39,7 @@ endif
 
 " If enabled, Spear will quit when saved (more like Harpoon).
 if !exists('g:spear_quit_on_save')
-  let g:spear_quit_on_save = 0
+  let g:spear_quit_on_save = 1
 endif
 
 " If enabled, Spear will auto-save all changes,
@@ -148,7 +148,7 @@ fun! s:tracker()
       let s:last_buf = bufname
       let s:last_win = winnr()
     endif
-    let s:spear_lines = readfile(s:get_list_file())
+    silent! let s:spear_lines = readfile(s:get_list_file())
     let spear_file_id = index(s:spear_lines, s:win_path_fix(bufname))
     if spear_file_id != -1
       " tracking for next_prev_file()
@@ -325,7 +325,7 @@ fun! spear#open_file(num, newfile = 1, invalid_prompt = 1)
   else
     " Spear is closed, and file a:num is being opened
     " update the Spear list in case the cwd has changed
-    let s:spear_lines = readfile(s:get_list_file())
+    silent! let s:spear_lines = readfile(s:get_list_file())
   endif
 
   " get filename
@@ -379,7 +379,7 @@ endfun
 " Move to the next or previous file in the list.
 " Skips any invalid files.
 fun! spear#next_prev_file(direction)
-  let s:spear_lines = readfile(s:get_list_file())
+  silent! let s:spear_lines = readfile(s:get_list_file())
   let listlen = len(s:spear_lines)
   if listlen == 0
     echohl WarningMsg | echo 'Error: No list for this directory.' | echohl None

@@ -83,8 +83,8 @@ Go to a project directory, add files, and then access them with mappings based
 on the order of pinned files. Now you can always access them when you return to the
 project.
 
-Edit and rearrange the menu list and save it like a normal buffer. Quickly quit
-or save with `q` and `s`, and open files with `<CR>`. The mappings to add and
+Edit, rearrange the menu list, and save it like a normal buffer. Quickly save
+or quit with `s` and `q`, and open files with `<CR>`. The mappings to add and
 remove the also work while the menu is open.
 
 Beware that opening a file from the menu will also save any unsaved changes.
@@ -103,11 +103,10 @@ let g:spear_delete_blank_lines = 0
 let g:spear_delete_invalid_files = 0
 
 " close the menu whenever it's manually saved
-" (enable this to be more Harpoon-like)
-let g:spear_quit_on_save = 0
+let g:spear_quit_on_save = 1
 
 " always save when the list menu text changes,
-" convenient but dangerous
+" disables the menu mapping 's' to save
 let g:spear_save_on_change = 0
 
 " cycle with the previous/next maps
