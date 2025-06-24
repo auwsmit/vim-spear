@@ -2,8 +2,8 @@
 
 ### ⟶Pin and quickly access important files per-project.
 
-I have basically recreated Primeagen's Harpoon nvim plugin from scratch, but in
-vimscript. Functions almost identically to Harpoon 2's core functionality.
+I have basically recreated Primeagen's Harpoon 2 nvim plugin from scratch, but in
+vimscript.
 
 Still a work in progress, but is fully usable! No fancy extra features or
 tmux/terminal integration yet.
@@ -15,7 +15,9 @@ old Vim and Neovim, while Harpoon is exclusive to Neovim.
 
 ### ⟶Why not use uppercase/file marks with tabs and/or sessions?
 
-If those work fine for you, then you don't need this plugin, and that's ok! Vim has many awesome built-in features which require no plugin installation or configuration.
+If those work fine for you, then you don't need this plugin, and that's ok! Vim
+has many awesome built-in features which require no plugin installation or
+configuration.
 
 Then why use Harpoon or Spear over marks and tabs/sessions?
 
@@ -77,12 +79,13 @@ kmap('n', '<C-S-P>',   ":call spear#next_prev_file('prev')<CR>", opts)
 
 ## ⟶How to use
 
-Go to a project directory, add files, and then access them with mappings. Now
-you can always access them when you return to the project. Edit and rearrange
-the menu list and save it like a normal buffer. Quickly quit or save with `q`
-and `s`, and open files with `<CR>`.
+Go to a project directory, add files, and then access them with mappings based
+on the order of pinned files. Now you can always access them when you return to the
+project.
 
-The mappings to add and remove the current fil also work on the menu while its open.
+Edit and rearrange the menu list and save it like a normal buffer. Quickly quit
+or save with `q` and `s`, and open files with `<CR>`. The mappings to add and
+remove the also work while the menu is open.
 
 Beware that opening a file from the menu will also save any unsaved changes.
 
@@ -108,6 +111,7 @@ let g:spear_quit_on_save = 0
 let g:spear_save_on_change = 0
 
 " cycle with the previous/next maps
+" when reaching start or end of list
 let g:spear_next_prev_cycle = 0
 
 " use floating window intead of split window
