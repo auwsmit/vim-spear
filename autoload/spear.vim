@@ -27,7 +27,7 @@ let s:last_buf = ''
 " ============================
 
 " If enabled, a prompt will be shown to delete blank lines or invalid files
-" when opened from the Spear menu, or with :SpearOpen command/mappings
+" when opened from the Spear menu, or with SpearOpen command/mappings
 " |
 " Does not affect :SpearNext and :SpearPrev, which skip invalid files
 if !exists('g:spear_delete_blank_lines')
@@ -37,7 +37,7 @@ if !exists('g:spear_delete_invalid_files')
   let g:spear_delete_invalid_files = 0
 endif
 
-" If enabled, Spear will quit when saved (more like Harpoon).
+" If disabled, Spear will stay open when saved
 if !exists('g:spear_quit_on_save')
   let g:spear_quit_on_save = 1
 endif
@@ -108,6 +108,7 @@ if has('nvim')
     let buf_nr = bufexists(s:spear_buf_name) ?
           \ bufnr(s:spear_buf_name) : nvim_create_buf(v:false, v:false)
     call nvim_buf_set_name(buf_nr, s:spear_temp_name)
+    " setlocal noswapfile to suppress error about creating a swapfile
     call nvim_set_option_value('swapfile', v:false,
           \                    {'scope' : 'local', 'buf' : buf_nr })
     call nvim_buf_set_name(buf_nr, s:spear_buf_name)
@@ -323,8 +324,8 @@ fun! spear#open_file(num, newfile = 1, invalid_prompt = 1)
     echohl WarningMsg | echo 'Error: Spear is not open to select a file.' | echohl None
     return 0
   else
-    " Spear is closed, and file a:num is being opened
-    " update the Spear list in case the cwd has changed
+    " Spear is closed, and file 'a:num' is being opened.
+    " Update the Spear list in case the cwd has changed.
     silent! let s:spear_lines = readfile(s:get_list_file())
   endif
 
@@ -354,6 +355,7 @@ fun! spear#open_file(num, newfile = 1, invalid_prompt = 1)
     silent! normal! g`"
   elseif a:newfile
     exec 'silent! edit '. saved_file
+    " TODO: test if this return 1 is necessary
     return 1
   elseif a:invalid_prompt
     echohl WarningMsg | echo 'Error: File not found!' | echohl None
@@ -378,6 +380,7 @@ endfun
 
 " Move to the next or previous file in the list.
 " Skips any invalid files.
+" TODO: maybe split into separate next/prev functions to simplify logic
 fun! spear#next_prev_file(direction)
   silent! let s:spear_lines = readfile(s:get_list_file())
   let listlen = len(s:spear_lines)
@@ -389,14 +392,14 @@ fun! spear#next_prev_file(direction)
   let bufname = s:win_path_fix(expand('%'))
   let start_id = s:last_file_id
   let offset = (a:direction == 'next' ? 1 : -1)
-  let file_opened = 0
+  let file_was_opened = 0
   let looped = 0
   let valid_list_id = index(s:spear_lines, bufname)
   if valid_list_id != -1
     let s:last_file_id = valid_list_id
   endif
 
-  while (file_opened == 0)
+  while (file_was_opened == 0)
     let is_start = (s:last_file_id   == 0)
     let is_end   = (s:last_file_id+1 == listlen)
     if (is_start && a:direction == 'prev') || (is_end && a:direction == 'next')
@@ -404,8 +407,8 @@ fun! spear#next_prev_file(direction)
         let s:last_file_id = is_start ? listlen-1 : 0
       else
         let msg = (a:direction == 'next') ? 'end' : 'start'
-        let file_opened = spear#open_file(s:last_file_id+1, 0, 0)
-        if file_opened
+        let file_was_opened = spear#open_file(s:last_file_id+1, 0, 0)
+        if file_was_opened
           echo 'Reached '. msg .' of Spear List'
           return
         else
@@ -418,11 +421,11 @@ fun! spear#next_prev_file(direction)
     if (start_id == s:last_file_id) && looped
       break
     endif
-    let file_opened = spear#open_file(s:last_file_id+1, 0, 0)
+    let file_was_opened = spear#open_file(s:last_file_id+1, 0, 0)
     let looped = 1
   endwhile
 
-  if file_opened
+  if file_was_opened
     echo 'Moved to file #'. (s:last_file_id+1) .' of Spear List'
   else
     echohl WarningMsg | echo 'Error: Cannot find file to open.' | echohl None
@@ -441,7 +444,8 @@ fun! spear#open_menu()
       call s:create_floating_win()
     else
       exec 'keepalt botright '.
-            \ s:spear_win_height .'split Spear'. s:spear_temp_name
+            \ s:spear_win_height .'split '. s:spear_temp_name
+      " setlocal noswapfile to suppress error about creating a swapfile
       setlocal noswapfile
       exec 'keepalt file '. s:spear_buf_name
     endif
