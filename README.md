@@ -2,8 +2,7 @@
 
 ### ⟶Pin and quickly access important files per-project.
 
-I have basically recreated Primeagen's Harpoon 2 nvim plugin from scratch, but in
-vimscript.
+A basic recreation of Primeagen's Harpoon 2 nvim plugin, but in vimscript.
 
 Still a work in progress, but is fully usable! No fancy extra features or
 tmux/terminal integration yet.
@@ -25,6 +24,7 @@ Then why use Harpoon or Spear over marks and tabs/sessions?
 - Easier to look up and manage the list of files. You can edit and save the list like a normal buffer.
 - Just cd to a project to have access to its pinned files, no dealing with session options or files or tabs.
 - Has more navigation options, hotkeys are mapped to the order of the list, and you can cycle through the list.
+- Remembers where you were when reopening pinned files, unlike marks that need manual updating.
 - Can handle more than 26 files across all projects (assuming you need to work on that many projects/files on one system).
 - You can still use file marks, tabs, and sessions along side this plugin.
 
@@ -57,7 +57,7 @@ nnoremap <silent> <C-h>     :call spear#open_file(1)<CR>
 nnoremap <silent> <C-j>     :call spear#open_file(2)<CR>
 nnoremap <silent> <C-k>     :call spear#open_file(3)<CR>
 nnoremap <silent> <C-l>     :call spear#open_file(4)<CR>
-" move to next or previous file in list
+" optional: move to next or previous file in list
 nnoremap <silent> <C-S-N>   :call spear#next_prev_file('next')<CR>
 nnoremap <silent> <C-S-P>   :call spear#next_prev_file('prev')<CR>
 ```
@@ -113,13 +113,13 @@ let g:spear_save_on_change = 0
 " when reaching start or end of list
 let g:spear_next_prev_cycle = 0
 
+" convert backslashes to forward slashes
+" (Windows only)
+let g:spear_convert_backslashes = 0
+
 " use floating window intead of split window
 " (neovim only)
 let g:spear_use_floating_window = 1
-
-" convert backslashes to forward slashes
-" (windows only)
-let g:spear_convert_backslashes = 1
 ```
 
 ```lua
