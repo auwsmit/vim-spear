@@ -21,8 +21,8 @@ configuration.
 Then why use Harpoon or Spear over marks and tabs/sessions?
 
 - Streamlines the process of marks/tabs/sessions.
-- Easier to look up and manage the list of files. You can edit and save the list like a normal buffer.
-- Just cd to a project to have access to its pinned files, no dealing with session options or files or tabs.
+- Easy to look up and manage the list of files. You can edit and save the list like a normal buffer.
+- Each Spear list is per-project. Just cd to a project to have access to its pinned files.
 - Has more navigation options, hotkeys are mapped to the order of the list, and you can cycle through the list.
 - Remembers where you were when reopening pinned files, unlike marks that need manual updating.
 - Can handle more than 26 files across all projects (assuming you need to work on that many projects/files on one system).
@@ -87,7 +87,7 @@ Edit, rearrange the menu list, and save it like a normal buffer. Quickly save
 or quit with `s` and `q`, and open files with `<CR>`. The mappings to add and
 remove the also work while the menu is open.
 
-Beware that opening a file from the menu will also save any unsaved changes.
+Beware that opening a file from the menu will also save any unsaved changes to the menu.
 
 ## ⟶Settings
 
