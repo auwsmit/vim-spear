@@ -11,7 +11,6 @@
 
 " PLUGIN GLOBALS:
 " ===============
-let s:spear_is_open = 0
 let s:spear_win_height = 8
 " put spear data files wherever vimrc is located.
 let s:spear_data_dir = fnamemodify(expand($MYVIMRC), ':h') .'/spear_data/'
@@ -479,7 +478,6 @@ fun! spear#open_menu()
             \ |   call spear#close_menu()
             \ | endif
     augroup END
-    let s:spear_is_open = 1
   endif
 endfun
 
@@ -492,9 +490,7 @@ fun! spear#close_menu()
   if winnr() == spear_id
     wincmd w
   endif
-  if s:get_spear_winnr() == -1
-    let s:spear_is_open = 0
-  else
+  if s:get_spear_winnr() != -1
     echohl WarningMsg | echo 'Error: Cannot close Spear menu.' | echohl None
   endif
 endfun
