@@ -1,6 +1,6 @@
 " Spear - similar to a harpoon
 " Author:     Austin W. Smith
-" Version:    1.0.2
+" Version:    1.0.3
 
 " TODO: something to do with terminal and tmux support, idk the details yet
 " TODO: maybe show a list of all saved lists, a list list if you will
@@ -447,7 +447,7 @@ fun! spear#open_menu()
       setlocal noswapfile
       exec 'keepalt file '. s:spear_buf_name
     endif
-    exec 'silent! read '. s:get_list_file()
+    exec 'silent! keepalt read '. s:get_list_file()
     1delete _
     if list_file_id == -1
       normal! gg
@@ -488,8 +488,15 @@ fun! spear#close_menu()
   if winnr() == spear_id
     wincmd p
   endif
-  exec spear_id .'wincmd c'
-  let s:spear_is_open = 0
+  silent! exec spear_id .'wincmd c'
+  if winnr() == spear_id
+    wincmd w
+  endif
+  if s:get_spear_winnr() == -1
+    let s:spear_is_open = 0
+  else
+    echohl WarningMsg | echo 'Error: Cannot close Spear menu.' | echohl None
+  endif
 endfun
 
 fun! spear#toggle_menu()
