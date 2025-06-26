@@ -1,6 +1,6 @@
 " Spear - similar to a harpoon
 " Author:     Austin W. Smith
-" Version:    1.0.1
+" Version:    1.0.2
 
 " TODO: something to do with terminal and tmux support, idk the details yet
 " TODO: maybe show a list of all saved lists, a list list if you will
@@ -20,7 +20,6 @@ let s:spear_buf_name = '---Spear-->'
 let s:spear_lines = []
 let s:float_win_id = -1
 let s:last_file_id = 0
-let s:last_win = -1
 let s:last_buf = ''
 
 " VARIABLES FOR USER SETTINGS:
@@ -58,12 +57,12 @@ if !exists('g:spear_next_prev_cycle')
   let g:spear_next_prev_cycle = 0
 endif
 
-" If disabled, backslashes are not converted
+" If enabled, backslashes will be converted
 " to forward slashes in the Spear menu
 " |
 " (Windows only)
 if !exists('g:spear_convert_backslashes')
-  let g:spear_convert_backslashes = 1
+  let g:spear_convert_backslashes = 0
 endif
 
 " If disabled, Spear will use a split window instead of a floating window
@@ -112,11 +111,12 @@ if has('nvim')
     call nvim_set_option_value('swapfile', v:false,
           \                    {'scope' : 'local', 'buf' : buf_nr })
     call nvim_buf_set_name(buf_nr, s:spear_buf_name)
+    let winwidth = min([120, &columns-(&columns/3)])
     let opts = {
           \ 'relative': 'editor',
-          \ 'width': 120,
+          \ 'width': winwidth,
           \ 'height': s:spear_win_height,
-          \ 'col': (&columns - 80) / 2,
+          \ 'col': (&columns - winwidth) / 2,
           \ 'row': (&lines - s:spear_win_height) / 2,
           \ 'style': 'minimal',
           \ 'border': 'single',
@@ -139,7 +139,7 @@ fun! s:get_spear_winnr()
   return winid
 endfun
 
-" Track the previous non-spear buffer/window.
+" Track the previous non-spear buffer.
 fun! s:tracker()
   let spear_id = s:get_spear_winnr()
   let bufname = expand('%')
@@ -147,7 +147,6 @@ fun! s:tracker()
   if winnr() != spear_id
     if (bufname != s:spear_buf_name)
       let s:last_buf = bufname
-      let s:last_win = winnr()
     endif
     silent! let s:spear_lines = readfile(s:get_list_file())
     let spear_file_id = index(s:spear_lines, s:win_path_fix(bufname))
@@ -434,7 +433,6 @@ fun! spear#next_prev_file(direction)
 endfun
 
 fun! spear#open_menu()
-  let s:last_win = winnr()
   let spear_id = s:get_spear_winnr()
 
   if spear_id == -1
@@ -487,12 +485,10 @@ endfun
 
 fun! spear#close_menu()
   let spear_id = s:get_spear_winnr()
-  " ensure return to the previous window
-  if winbufnr(s:last_win) != -1
-    exec s:last_win .'wincmd w'
+  if winnr() == spear_id
+    wincmd p
   endif
   exec spear_id .'wincmd c'
-
   let s:spear_is_open = 0
 endfun
 
