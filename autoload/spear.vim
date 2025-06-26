@@ -1,6 +1,6 @@
 " Spear - similar to a harpoon
 " Author:     Austin W. Smith
-" Version:    1.0.3
+" Version:    1.0.4
 
 " TODO: something to do with terminal and tmux support, idk the details yet
 " TODO: maybe show a list of all saved lists, a list list if you will
@@ -96,8 +96,9 @@ fun! s:get_list_file()
   let cwd = substitute(getcwd(), '\', '/', 'g')
   let parts = split(cwd, '/')
   let short_cwd = join(parts[-2:], '_')
-  let list = s:spear_data_dir . short_cwd .'_'. sha256(cwd) .'.txt'
-  return list
+  let short_cwd = substitute(short_cwd, ':', '', 'g')
+  let filename = s:spear_data_dir . short_cwd .'_'. sha256(cwd) .'.txt'
+  return filename
 endfun
 
 " Create a Neovim floating window.
@@ -237,6 +238,10 @@ fun! spear#add_file()
   "   call spear#save()
   " endif
 
+  " update list in case directory changed
+  let list = s:get_list_file()
+  let s:spear_lines = filereadable(list) ? readfile(list) : []
+
   " check if file to add is valid
   let file_to_add = expand('%:p')
   if expand('%') == s:spear_buf_name
@@ -261,7 +266,7 @@ fun! spear#add_file()
     call add(s:spear_lines, file_to_add)
   endif
 
-  call writefile(s:spear_lines, s:get_list_file())
+  call writefile(s:spear_lines, list)
   call spear#refresh()
   if s:get_spear_winnr() == -1
     echo 'Added "'. expand('%:t') .'" to Spear List'
@@ -278,7 +283,9 @@ fun! spear#remove_file()
   "   call spear#save()
   " endif
 
+  " update list in case directory changed
   let list = s:get_list_file()
+  let s:spear_lines = filereadable(list) ? readfile(list) : []
   let bufname = expand('%')
   let matchstr = ''
 
@@ -322,9 +329,10 @@ fun! spear#open_file(num, newfile = 1, invalid_prompt = 1)
     echohl WarningMsg | echo 'Error: Spear is not open to select a file.' | echohl None
     return 0
   else
-    " Spear is closed, and file 'a:num' is being opened.
-    " Update the Spear list in case the cwd has changed.
-    silent! let s:spear_lines = readfile(s:get_list_file())
+    " Spear menu is closed, and file 'a:num' is being opened.
+    " update list in case directory changed
+    let list = s:get_list_file()
+    let s:spear_lines = filereadable(list) ? readfile(list) : []
   endif
 
   " get filename
@@ -368,7 +376,7 @@ fun! spear#open_file(num, newfile = 1, invalid_prompt = 1)
     let ask = confirm(msg, "&Yes\n&no", 1)
     if ask == 2 | return 0 | end
     call remove(s:spear_lines, invalid_file_id-1)
-    call writefile(s:spear_lines, s:get_list_file())
+    call writefile(s:spear_lines, list)
   else
     return 0
   endif
@@ -380,7 +388,8 @@ endfun
 " Skips any invalid files.
 " TODO: maybe split into separate next/prev functions to simplify logic
 fun! spear#next_prev_file(direction)
-  silent! let s:spear_lines = readfile(s:get_list_file())
+  let list = s:get_list_file()
+  let s:spear_lines = filereadable(list) ? readfile(list) : []
   let listlen = len(s:spear_lines)
   if listlen == 0
     echohl WarningMsg | echo 'Error: No list for this directory.' | echohl None
